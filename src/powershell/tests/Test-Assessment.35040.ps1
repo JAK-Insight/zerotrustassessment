@@ -1,8 +1,10 @@
-# src\powershell\tests\Test-Assessment.35040.ps1
-
 <#
 .SYNOPSIS
     DLP policies are configured for Exchange Online
+.DESCRIPTION
+    Checks whether Data Loss Prevention (DLP) policies are configured and enforced
+    for Exchange Online. At least one policy should be in enforcement mode to provide
+    active protection against sensitive data loss via email.
 #>
 
 function Test-Assessment-35040 {
@@ -30,7 +32,7 @@ function Test-Assessment-35040 {
     $dlpPolicies = @()
 
     try {
-        $dlpPolicies = Get-DlpCompliancePolicy -ErrorAction Stop
+        $dlpPolicies = @(Get-DlpCompliancePolicy -ErrorAction Stop)
     }
     catch {
         $errorMsg = $_
@@ -39,8 +41,9 @@ function Test-Assessment-35040 {
     #endregion Data Collection
 
     #region Assessment Logic
-    $exchangePolicies = @()
-    $exchangeEnabledPolicies = @()
+    $exchangePolicies = [System.Collections.Generic.List[object]]::new()
+    $exchangeEnabledPolicies = [System.Collections.Generic.List[object]]::new()
+    $exchangeSimulationPolicies = [System.Collections.Generic.List[object]]::new()
     $passed = $false
     $customStatus = $null
 
@@ -51,33 +54,44 @@ function Test-Assessment-35040 {
     else {
         # Filter policies that include Exchange Online as a location
         foreach ($policy in $dlpPolicies) {
-            $hasExchange = $false
-            if ($policy.ExchangeLocation) {
-                $locations = @($policy.ExchangeLocation)
-                if ($locations.Count -gt 0) {
-                    $hasExchange = $true
-                }
-            }
+            if ($policy.ExchangeLocation -and @($policy.ExchangeLocation).Count -gt 0) {
+                $exchangePolicies.Add($policy)
 
-            if ($hasExchange) {
-                $exchangePolicies += $policy
-                if ($policy.Mode -eq 'Enable') {
-                    $exchangeEnabledPolicies += $policy
+                switch ($policy.Mode) {
+                    'Enable' {
+                        $exchangeEnabledPolicies.Add($policy)
+                    }
+                    { $_ -in 'TestWithNotifications', 'TestWithoutNotifications' } {
+                        $exchangeSimulationPolicies.Add($policy)
+                    }
                 }
             }
         }
 
         if ($exchangeEnabledPolicies.Count -gt 0) {
             $passed = $true
-            $testResultMarkdown = "✅ $($exchangeEnabledPolicies.Count) DLP policy(ies) are configured and enabled for Exchange Online.`n`n%TestResult%"
+            $testResultMarkdown = "✅ $($exchangeEnabledPolicies.Count) DLP policy(ies) are configured and actively enforcing on Exchange Online.`n`n"
+
+            # Surface simulation-mode policies as an improvement opportunity
+            if ($exchangeSimulationPolicies.Count -gt 0) {
+                $testResultMarkdown += "⚠️ **Improvement opportunity:** $($exchangeSimulationPolicies.Count) additional policy(ies) are in simulation mode. "
+                $testResultMarkdown += "Review match reports in [DLP Activity Explorer](https://purview.microsoft.com/datalossprevention/activityexplorer) and consider promoting to enforcement.`n`n"
+            }
+
+            $testResultMarkdown += "%TestResult%"
         }
         elseif ($exchangePolicies.Count -gt 0) {
             $passed = $false
-            $testResultMarkdown = "❌ $($exchangePolicies.Count) DLP policy(ies) include Exchange Online but none are in enforcement mode.`n`n%TestResult%"
+            $testResultMarkdown = "❌ $($exchangePolicies.Count) DLP policy(ies) include Exchange Online but none are in enforcement mode.`n`n"
+            $testResultMarkdown += "Policies in simulation mode detect sensitive content but **do not block or protect it**. "
+            $testResultMarkdown += "Review match reports and promote at least one policy to enforcement.`n`n"
+            $testResultMarkdown += "%TestResult%"
         }
         else {
             $passed = $false
-            $testResultMarkdown = "❌ No DLP policies are configured that include Exchange Online as a protected location. Sensitive data can be sent via email without detection or prevention.`n`n%TestResult%"
+            $testResultMarkdown = "❌ No DLP policies are configured that include Exchange Online as a protected location. "
+            $testResultMarkdown += "Sensitive data can be sent via email without detection or prevention.`n`n"
+            $testResultMarkdown += "%TestResult%"
         }
     }
     #endregion Assessment Logic
@@ -87,39 +101,60 @@ function Test-Assessment-35040 {
 
     if ($exchangePolicies.Count -gt 0) {
         $mdInfo += "`n`n### [DLP Policies covering Exchange Online](https://purview.microsoft.com/datalossprevention/policies)`n"
-        $mdInfo += "| Policy Name | Mode | Exchange Location | Created |`n"
-        $mdInfo += "| :--- | :--- | :--- | :--- |`n"
+        $mdInfo += "| | Policy Name | Mode | Exchange Scope | Created |`n"
+        $mdInfo += "| :---: | :--- | :--- | :--- | :--- |`n"
 
-        foreach ($policy in $exchangePolicies) {
-            $policyName = Get-SafeMarkdown -Text $policy.Name
-            $icon = if ($policy.Mode -eq 'Enable') { '✅' } else { '⚠️' }
-            $modeDisplay = switch ($policy.Mode) {
-                'Enable' { 'Enforcing' }
-                'TestWithNotifications' { 'Simulation (with tips)' }
-                'TestWithoutNotifications' { 'Simulation (no tips)' }
-                default { $policy.Mode }
+        # Sort: enforcing first, then simulation, then other
+        $sortedPolicies = $exchangePolicies | Sort-Object @{
+            Expression = {
+                switch ($_.Mode) {
+                    'Enable'                   { 0 }
+                    'TestWithNotifications'    { 1 }
+                    'TestWithoutNotifications' { 2 }
+                    default                    { 3 }
+                }
             }
-            $exchangeLoc = ($policy.ExchangeLocation | ForEach-Object { $_.Name }) -join ', '
+        }
+
+        foreach ($policy in $sortedPolicies) {
+            $policyName = Get-SafeMarkdown -Text $policy.Name
+            $icon = switch ($policy.Mode) {
+                'Enable'                   { '✅' }
+                'TestWithNotifications'    { '🧪' }
+                'TestWithoutNotifications' { '🧪' }
+                default                    { '⚠️' }
+            }
+            $modeDisplay = switch ($policy.Mode) {
+                'Enable'                   { 'Enforcing' }
+                'TestWithNotifications'    { 'Simulation (with tips)' }
+                'TestWithoutNotifications' { 'Simulation (no tips)' }
+                default                    { $policy.Mode }
+            }
+            $exchangeLoc = ($policy.ExchangeLocation | ForEach-Object {
+                if ($_.Name) { $_.Name } else { $_.ToString() }
+            }) -join ', '
             $created = Get-FormattedDate -Date $policy.WhenCreatedUTC
-            $mdInfo += "| $icon $policyName | $modeDisplay | $exchangeLoc | $created |`n"
+            $mdInfo += "| $icon | $policyName | $modeDisplay | $exchangeLoc | $created |`n"
         }
     }
 
     if ($dlpPolicies.Count -gt 0 -and $exchangePolicies.Count -eq 0) {
         $mdInfo += "`n`n### Note`n"
-        $mdInfo += "$($dlpPolicies.Count) DLP policy(ies) exist in the tenant but none include Exchange Online as a location.`n"
+        $mdInfo += "Your tenant has $($dlpPolicies.Count) DLP policy(ies), but none include Exchange Online as a protected location.`n"
     }
 
     $mdInfo += "`n`n### Summary`n"
     $mdInfo += "| Metric | Count |`n"
-    $mdInfo += "| :--- | :--- |`n"
+    $mdInfo += "| :--- | ---: |`n"
     $mdInfo += "| Total DLP policies in tenant | $($dlpPolicies.Count) |`n"
-    $mdInfo += "| DLP policies covering Exchange Online | $($exchangePolicies.Count) |`n"
-    $mdInfo += "| DLP policies enforcing on Exchange Online | $($exchangeEnabledPolicies.Count) |"
+    $mdInfo += "| Policies covering Exchange Online | $($exchangePolicies.Count) |`n"
+    $mdInfo += "| ✅ Enforcing | $($exchangeEnabledPolicies.Count) |`n"
+    $mdInfo += "| 🧪 Simulation mode | $($exchangeSimulationPolicies.Count) |"
 
     $testResultMarkdown = $testResultMarkdown -replace '%TestResult%', $mdInfo
     #endregion Report Generation
 
+    #region Output
     $params = @{
         TestId = '35040'
         Title  = 'DLP policies are configured for Exchange Online'
@@ -128,4 +163,5 @@ function Test-Assessment-35040 {
     }
     if ($null -ne $customStatus) { $params.CustomStatus = $customStatus }
     Add-ZtTestResultDetail @params
+    #endregion Output
 }
