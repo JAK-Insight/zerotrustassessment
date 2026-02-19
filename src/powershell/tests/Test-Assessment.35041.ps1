@@ -1,10 +1,7 @@
-# src\powershell\tests\Test-Assessment.35041.ps1
-
 <#
 .SYNOPSIS
-    DLP policies are configured for SharePoint Online and OneDrive
+ DLP policies are configured for SharePoint Online and OneDrive
 #>
-
 function Test-Assessment-35041 {
     [ZtTest(
         Category = 'Data Loss Prevention (DLP)',
@@ -21,115 +18,183 @@ function Test-Assessment-35041 {
     [CmdletBinding()]
     param()
 
-    #region Data Collection
     Write-PSFMessage '🟦 Start' -Tag Test -Level VeryVerbose
+
+    $testId   = 35041
+    $title    = 'DLP policies are configured for SharePoint Online and OneDrive'
     $activity = 'Checking DLP policy coverage for SharePoint Online and OneDrive'
+    $mdPath   = Join-Path -Path $PSScriptRoot -ChildPath ("Test-Assessment.{0}.md" -f $testId)
+
+    #region Data Collection
     Write-ZtProgress -Activity $activity -Status 'Getting DLP policies'
 
     $errorMsg = $null
     $dlpPolicies = @()
 
-    try {
-        $dlpPolicies = Get-DlpCompliancePolicy -ErrorAction Stop
+    if (-not (Get-Command Get-DlpCompliancePolicy -ErrorAction SilentlyContinue)) {
+        $errorMsg = "Get-DlpCompliancePolicy cmdlet not found. Ensure Security & Compliance (IPPS) session is connected."
+        Write-PSFMessage $errorMsg -Level Warning
     }
-    catch {
-        $errorMsg = $_
-        Write-PSFMessage "Error querying DLP policies: $_" -Level Error
+    else {
+        try {
+            $dlpPolicies = @(Get-DlpCompliancePolicy -ErrorAction Stop)
+        }
+        catch {
+            $errorMsg = $_.Exception.Message
+            Write-PSFMessage ("Error querying DLP policies: {0}" -f $_) -Level Error
+        }
     }
     #endregion Data Collection
 
     #region Assessment Logic
-    $spoPolicies = @()
-    $spoEnabledPolicies = @()
+    $spoPolicies = New-Object System.Collections.Generic.List[object]
+    $spoEnabledPolicies = New-Object System.Collections.Generic.List[object]
+
     $passed = $false
     $customStatus = $null
+    $leadText = ''
 
     if ($errorMsg) {
-        $testResultMarkdown = "⚠️ Unable to determine DLP policy coverage for SharePoint/OneDrive due to permissions issues or query failure.`n`n"
         $customStatus = 'Investigate'
+        $leadText = "⚠️ Unable to determine DLP policy coverage for SharePoint/OneDrive due to permissions issues or query failure.`n`n**Details:** $errorMsg`n"
     }
     else {
         foreach ($policy in $dlpPolicies) {
             $hasSPO = $false
             $hasODB = $false
 
+            # Same basic logic as your current script: location exists + has entries means enabled for that workload. [1](https://insightonline-my.sharepoint.com/personal/joshua_kaye_insight_com/Documents/Microsoft%20Copilot%20Chat%20Files/Test-Assessment.35041.ps1.txt)
             if ($policy.SharePointLocation) {
-                $locations = @($policy.SharePointLocation)
-                if ($locations.Count -gt 0) { $hasSPO = $true }
+                if (@($policy.SharePointLocation).Count -gt 0) { $hasSPO = $true }
             }
             if ($policy.OneDriveLocation) {
-                $locations = @($policy.OneDriveLocation)
-                if ($locations.Count -gt 0) { $hasODB = $true }
+                if (@($policy.OneDriveLocation).Count -gt 0) { $hasODB = $true }
             }
 
             if ($hasSPO -or $hasODB) {
-                $spoPolicies += [PSCustomObject]@{
-                    Policy = $policy
+                $spoPolicies.Add([PSCustomObject]@{
+                    Policy       = $policy
                     HasSharePoint = $hasSPO
-                    HasOneDrive = $hasODB
-                }
+                    HasOneDrive   = $hasODB
+                })
+
+                # Enforcing mode is Mode = Enable (matches your current behavior). [1](https://insightonline-my.sharepoint.com/personal/joshua_kaye_insight_com/Documents/Microsoft%20Copilot%20Chat%20Files/Test-Assessment.35041.ps1.txt)
                 if ($policy.Mode -eq 'Enable') {
-                    $spoEnabledPolicies += $policy
+                    $spoEnabledPolicies.Add($policy)
                 }
             }
         }
 
         if ($spoEnabledPolicies.Count -gt 0) {
             $passed = $true
-            $testResultMarkdown = "✅ $($spoEnabledPolicies.Count) DLP policy(ies) are configured and enabled for SharePoint Online and/or OneDrive for Business.`n`n%TestResult%"
+            $leadText = "✅ $($spoEnabledPolicies.Count) DLP policy(ies) are configured and enabled for SharePoint Online and/or OneDrive for Business.`n"
         }
         elseif ($spoPolicies.Count -gt 0) {
             $passed = $false
-            $testResultMarkdown = "❌ $($spoPolicies.Count) DLP policy(ies) include SharePoint/OneDrive but none are in enforcement mode.`n`n%TestResult%"
+            $leadText = "❌ $($spoPolicies.Count) DLP policy(ies) include SharePoint/OneDrive but none are in enforcement mode.`n"
         }
         else {
             $passed = $false
-            $testResultMarkdown = "❌ No DLP policies are configured that include SharePoint Online or OneDrive for Business. Sensitive files can be stored and shared without detection or restriction.`n`n%TestResult%"
+            $leadText = "❌ No DLP policies are configured that include SharePoint Online or OneDrive for Business. Sensitive files can be stored and shared without detection or restriction.`n"
         }
     }
     #endregion Assessment Logic
 
-    #region Report Generation
-    $mdInfo = ''
+    #region Report Generation (Evidence)
+    $lines = New-Object System.Collections.Generic.List[string]
+    $lines.Add($leadText)
+    $lines.Add("")
 
-    if ($spoPolicies.Count -gt 0) {
-        $mdInfo += "`n`n### [DLP Policies covering SharePoint/OneDrive](https://purview.microsoft.com/datalossprevention/policies)`n"
-        $mdInfo += "| Policy Name | Mode | SharePoint | OneDrive | Created |`n"
-        $mdInfo += "| :--- | :--- | :--- | :--- | :--- |`n"
+    if (-not $errorMsg) {
 
-        foreach ($item in $spoPolicies) {
-            $policy = $item.Policy
-            $policyName = Get-SafeMarkdown -Text $policy.Name
-            $icon = if ($policy.Mode -eq 'Enable') { '✅' } else { '⚠️' }
-            $modeDisplay = switch ($policy.Mode) {
-                'Enable' { 'Enforcing' }
-                'TestWithNotifications' { 'Simulation (with tips)' }
-                'TestWithoutNotifications' { 'Simulation (no tips)' }
-                default { $policy.Mode }
+        if ($spoPolicies.Count -gt 0) {
+            $lines.Add("### DLP Policies covering SharePoint/OneDrive")
+            $lines.Add("")
+            $lines.Add("Policy Name | Mode | SharePoint | OneDrive | Created")
+            $lines.Add(":---|:---|:---:|:---:|:---")
+
+            # Sort: enforcing first, then simulation, then other; stable by name
+            $sorted = $spoPolicies | Sort-Object @{
+                Expression = {
+                    switch ($_.Policy.Mode) {
+                        'Enable' { 0 }
+                        'TestWithNotifications' { 1 }
+                        'TestWithoutNotifications' { 2 }
+                        default { 3 }
+                    }
+                }
+            }, @{
+                Expression = { $_.Policy.Name }
             }
-            $spoIcon = if ($item.HasSharePoint) { '✅' } else { '❌' }
-            $odbIcon = if ($item.HasOneDrive) { '✅' } else { '❌' }
-            $created = Get-FormattedDate -Date $policy.WhenCreatedUTC
-            $mdInfo += "| $icon $policyName | $modeDisplay | $spoIcon | $odbIcon | $created |`n"
+
+            foreach ($item in $sorted) {
+                $policy = $item.Policy
+                $policyName = Get-SafeMarkdown -Text $policy.Name
+
+                $modeDisplay = switch ($policy.Mode) {
+                    'Enable' { 'Enforcing' }
+                    'TestWithNotifications' { 'Simulation (with tips)' }
+                    'TestWithoutNotifications' { 'Simulation (no tips)' }
+                    default { $policy.Mode }
+                }
+
+                # Keep icons as requested
+                $spoIcon = if ($item.HasSharePoint) { '✅' } else { '❌' }
+                $odbIcon = if ($item.HasOneDrive)   { '✅' } else { '❌' }
+
+                $created = Get-FormattedDate -Date $policy.WhenCreatedUTC
+
+                $lines.Add(("$policyName | $modeDisplay | $spoIcon | $odbIcon | $created"))
+            }
+
+            $lines.Add("")
         }
+        elseif ($dlpPolicies.Count -gt 0) {
+            $lines.Add("### Note")
+            $lines.Add(("Your tenant has {0} DLP policy(ies), but none include SharePoint Online or OneDrive for Business as protected locations." -f $dlpPolicies.Count))
+            $lines.Add("")
+        }
+
+        $lines.Add("### Summary")
+        $lines.Add("")
+        $lines.Add("Metric | Count")
+        $lines.Add(":---|---:")
+        $lines.Add(("Total DLP policies in tenant | {0}" -f $dlpPolicies.Count))
+        $lines.Add(("DLP policies covering SharePoint/OneDrive | {0}" -f $spoPolicies.Count))
+        $lines.Add(("DLP policies enforcing on SharePoint/OneDrive | {0}" -f $spoEnabledPolicies.Count))
     }
 
-    $mdInfo += "`n`n### Summary`n"
-    $mdInfo += "| Metric | Count |`n"
-    $mdInfo += "| :--- | :--- |`n"
-    $mdInfo += "| Total DLP policies in tenant | $($dlpPolicies.Count) |`n"
-    $mdInfo += "| DLP policies covering SharePoint/OneDrive | $($spoPolicies.Count) |`n"
-    $mdInfo += "| DLP policies enforcing on SharePoint/OneDrive | $($spoEnabledPolicies.Count) |"
-
-    $testResultMarkdown = $testResultMarkdown -replace '%TestResult%', $mdInfo
+    $mdInfo = ($lines -join "`n")
     #endregion Report Generation
 
+    #region Load MD and Inject Evidence
+    $resultMarkdown = $null
+
+    if (Test-Path $mdPath) {
+        $baseMd = Get-Content -Path $mdPath -Raw
+        if ($baseMd -match '%TestResult%') {
+            $resultMarkdown = $baseMd -replace '%TestResult%', $mdInfo
+        }
+        else {
+            $resultMarkdown = $baseMd + "`n`n<!--- Results (auto-appended; missing %TestResult% token) --->`n" + $mdInfo
+            $customStatus = 'Investigate'
+        }
+    }
+    else {
+        $resultMarkdown = "⚠️ Missing markdown file: $mdPath`n`n$mdInfo"
+        $customStatus = 'Investigate'
+    }
+    #endregion Load MD and Inject Evidence
+
+    #region Output
     $params = @{
-        TestId = '35041'
-        Title  = 'DLP policies are configured for SharePoint Online and OneDrive'
+        TestId = "$testId"
+        Title  = $title
         Status = $passed
-        Result = $testResultMarkdown
+        Result = $resultMarkdown
     }
     if ($null -ne $customStatus) { $params.CustomStatus = $customStatus }
+
     Add-ZtTestResultDetail @params
+    #endregion Output
 }

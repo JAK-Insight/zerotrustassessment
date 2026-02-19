@@ -1,10 +1,7 @@
-# src\powershell\tests\Test-Assessment.35046.ps1
-
 <#
 .SYNOPSIS
-    TLS enforcement is configured for Exchange Online
+ TLS enforcement is configured for Exchange Online
 #>
-
 function Test-Assessment-35046 {
     [ZtTest(
         Category = 'Encryption',
@@ -21,91 +18,151 @@ function Test-Assessment-35046 {
     [CmdletBinding()]
     param()
 
-    #region Data Collection
     Write-PSFMessage '🟦 Start' -Tag Test -Level VeryVerbose
+
+    $testId   = 35046
+    $title    = 'TLS enforcement is configured for Exchange Online'
     $activity = 'Checking TLS enforcement for Exchange Online'
+    $mdPath   = Join-Path -Path $PSScriptRoot -ChildPath ("Test-Assessment.{0}.md" -f $testId)
+
+    #region Data Collection
     Write-ZtProgress -Activity $activity -Status 'Getting outbound connectors'
 
     $errorMsg = $null
     $connectors = @()
 
-    try {
-        $connectors = Get-OutboundConnector -ErrorAction Stop
+    if (-not (Get-Command Get-OutboundConnector -ErrorAction SilentlyContinue)) {
+        $errorMsg = "Get-OutboundConnector cmdlet not found. Ensure Exchange Online session is connected (Connect-ExchangeOnline / Connect-ZtAssessment -Service ExchangeOnline)."
+        Write-PSFMessage $errorMsg -Level Warning
     }
-    catch {
-        $errorMsg = $_
-        Write-PSFMessage "Error querying outbound connectors: $_" -Level Error
+    else {
+        try {
+            $connectors = @(Get-OutboundConnector -ErrorAction Stop)
+        }
+        catch {
+            $errorMsg = $_.Exception.Message
+            Write-PSFMessage ("Error querying outbound connectors: {0}" -f $_) -Level Error
+        }
     }
     #endregion Data Collection
 
     #region Assessment Logic
-    $tlsConnectors = @()
-    $nonTlsConnectors = @()
+    $tlsConnectors    = New-Object System.Collections.Generic.List[object]
+    $nonTlsConnectors = New-Object System.Collections.Generic.List[object]
+
     $passed = $false
     $customStatus = $null
+    $leadText = ''
 
     if ($errorMsg) {
-        $testResultMarkdown = "⚠️ Unable to determine TLS enforcement status due to permissions issues or query failure.`n`n"
         $customStatus = 'Investigate'
+        $leadText = "⚠️ Unable to determine TLS enforcement status due to permissions issues or query failure.`n`n**Details:** $errorMsg`n"
     }
     else {
         foreach ($connector in $connectors) {
+            # Only consider enabled connectors (matches your current behavior). [1](https://insightonline-my.sharepoint.com/personal/joshua_kaye_insight_com/Documents/Microsoft%20Copilot%20Chat%20Files/Test-Assessment.35046.ps1.txt)
             if ($connector.Enabled -ne $true) { continue }
 
-            if ($connector.TlsSettings -eq 'EncryptionOnly' -or
-                $connector.TlsSettings -eq 'CertificateValidation' -or
-                $connector.TlsSettings -eq 'DomainValidation') {
-                $tlsConnectors += $connector
+            if ($connector.TlsSettings -in @('EncryptionOnly', 'CertificateValidation', 'DomainValidation')) {
+                $tlsConnectors.Add($connector)
             }
             else {
-                $nonTlsConnectors += $connector
+                $nonTlsConnectors.Add($connector)
             }
         }
 
         if ($tlsConnectors.Count -gt 0) {
             $passed = $true
-            $testResultMarkdown = "✅ $($tlsConnectors.Count) outbound connector(s) enforce TLS encryption for mail flow.`n`n%TestResult%"
+            $leadText = "✅ $($tlsConnectors.Count) outbound connector(s) enforce TLS encryption for mail flow.`n"
         }
         else {
             $passed = $false
-            $testResultMarkdown = "❌ No outbound connectors enforce TLS encryption. Exchange Online relies on opportunistic TLS which does not guarantee encryption if the receiving server doesn't support it.`n`n%TestResult%"
+            $leadText = "❌ No outbound connectors enforce TLS encryption. Exchange Online relies on opportunistic TLS which does not guarantee encryption if the receiving server doesn't support it.`n"
         }
     }
     #endregion Assessment Logic
 
-    #region Report Generation
-    $mdInfo = ''
+    #region Evidence Markdown
+    $lines = New-Object System.Collections.Generic.List[string]
+    $lines.Add($leadText)
+    $lines.Add("")
 
-    $enabledConnectors = $connectors | Where-Object { $_.Enabled -eq $true }
-    if ($enabledConnectors.Count -gt 0) {
-        $mdInfo += "`n`n### [Outbound Connectors](https://admin.exchange.microsoft.com/#/connectors)`n"
-        $mdInfo += "| Connector Name | Enabled | TLS Settings | Recipient Domains |`n"
-        $mdInfo += "| :--- | :--- | :--- | :--- |`n"
+    if (-not $errorMsg) {
+        $enabledConnectors = @($connectors | Where-Object { $_.Enabled -eq $true })
 
-        foreach ($connector in $enabledConnectors) {
-            $connectorName = Get-SafeMarkdown -Text $connector.Name
-            $icon = if ($connector.TlsSettings -and $connector.TlsSettings -ne 'None') { '✅' } else { '⚠️' }
-            $tlsDisplay = if ($connector.TlsSettings) { $connector.TlsSettings } else { 'Opportunistic (default)' }
-            $domains = if ($connector.RecipientDomains) { ($connector.RecipientDomains -join ', ') } else { 'All' }
-            $mdInfo += "| $icon $connectorName | $($connector.Enabled) | $tlsDisplay | $domains |`n"
+        if ($enabledConnectors.Count -gt 0) {
+            $lines.Add("### Outbound Connectors")
+            $lines.Add("")
+            $lines.Add("Connector Name | Enabled | TLS Settings | Recipient Domains")
+            $lines.Add(":---|:---:|:---|:---")
+
+            # Sort: TLS-enforcing first, then others; stable by name
+            $sorted = $enabledConnectors | Sort-Object @{
+                Expression = {
+                    if ($_.TlsSettings -in @('EncryptionOnly','CertificateValidation','DomainValidation')) { 0 } else { 1 }
+                }
+            }, @{
+                Expression = { $_.Name }
+            }
+
+            foreach ($connector in $sorted) {
+                $connectorName = Get-SafeMarkdown -Text $connector.Name
+
+                $icon = if ($connector.TlsSettings -and $connector.TlsSettings -ne 'None') { '✅' } else { '⚠️' }
+                $tlsDisplay = if ($connector.TlsSettings) { $connector.TlsSettings } else { 'Opportunistic (default)' }
+
+                $domains = if ($connector.RecipientDomains -and $connector.RecipientDomains.Count -gt 0) {
+                    ($connector.RecipientDomains -join ', ')
+                }
+                else { 'All' }
+
+                $domains = Get-SafeMarkdown -Text $domains
+
+                $lines.Add(("$icon $connectorName | $($connector.Enabled) | $tlsDisplay | $domains"))
+            }
+
+            $lines.Add("")
+        }
+
+        $lines.Add("### Summary")
+        $lines.Add("")
+        $lines.Add("Metric | Count")
+        $lines.Add(":---|---:")
+        $lines.Add(("Total outbound connectors | {0}" -f $connectors.Count))
+        $lines.Add(("Connectors enforcing TLS | {0}" -f $tlsConnectors.Count))
+    }
+
+    $mdInfo = ($lines -join "`n")
+    #endregion Evidence Markdown
+
+    #region Load MD and Inject Evidence
+    $resultMarkdown = $null
+
+    if (Test-Path $mdPath) {
+        $baseMd = Get-Content -Path $mdPath -Raw
+        if ($baseMd -match '%TestResult%') {
+            $resultMarkdown = $baseMd -replace '%TestResult%', $mdInfo
+        }
+        else {
+            $resultMarkdown = $baseMd + "`n`n<!--- Results (auto-appended; missing %TestResult% token) --->`n" + $mdInfo
+            $customStatus = 'Investigate'
         }
     }
+    else {
+        $resultMarkdown = "⚠️ Missing markdown file: $mdPath`n`n$mdInfo"
+        $customStatus = 'Investigate'
+    }
+    #endregion Load MD and Inject Evidence
 
-    $mdInfo += "`n`n### Summary`n"
-    $mdInfo += "| Metric | Count |`n"
-    $mdInfo += "| :--- | :--- |`n"
-    $mdInfo += "| Total outbound connectors | $($connectors.Count) |`n"
-    $mdInfo += "| Connectors enforcing TLS | $($tlsConnectors.Count) |"
-
-    $testResultMarkdown = $testResultMarkdown -replace '%TestResult%', $mdInfo
-    #endregion Report Generation
-
+    #region Output
     $params = @{
-        TestId = '35046'
-        Title  = 'TLS enforcement is configured for Exchange Online'
+        TestId = "$testId"
+        Title  = $title
         Status = $passed
-        Result = $testResultMarkdown
+        Result = $resultMarkdown
     }
     if ($null -ne $customStatus) { $params.CustomStatus = $customStatus }
+
     Add-ZtTestResultDetail @params
+    #endregion Output
 }

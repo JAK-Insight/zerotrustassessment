@@ -38,3 +38,6 @@ Connect-IPPSSession
 Get-DlpCompliancePolicy | Where-Object { $_.ExchangeLocation } |
     Select-Object Name, Mode, @{N='ExchangeScope';E={($_.ExchangeLocation).Name -join ', '}} |
     Format-Table -AutoSize
+```
+<!--- Results --->
+%TestResult%

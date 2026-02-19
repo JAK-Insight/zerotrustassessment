@@ -1,10 +1,7 @@
-# src\powershell\tests\Test-Assessment.35048.ps1
-
 <#
 .SYNOPSIS
-    Retention policies are configured
+ Retention policies are configured
 #>
-
 function Test-Assessment-35048 {
     [ZtTest(
         Category = 'Data Governance',
@@ -21,20 +18,31 @@ function Test-Assessment-35048 {
     [CmdletBinding()]
     param()
 
-    #region Data Collection
     Write-PSFMessage '🟦 Start' -Tag Test -Level VeryVerbose
+
+    $testId   = 35048
+    $title    = 'Retention policies are configured'
     $activity = 'Checking retention policy configuration'
+    $mdPath   = Join-Path -Path $PSScriptRoot -ChildPath ("Test-Assessment.{0}.md" -f $testId)
+
+    #region Data Collection
     Write-ZtProgress -Activity $activity -Status 'Getting retention policies'
 
     $errorMsg = $null
     $retentionPolicies = @()
 
-    try {
-        $retentionPolicies = Get-RetentionCompliancePolicy -ErrorAction Stop
+    if (-not (Get-Command Get-RetentionCompliancePolicy -ErrorAction SilentlyContinue)) {
+        $errorMsg = "Get-RetentionCompliancePolicy cmdlet not found. Ensure Security & Compliance (IPPS) session is connected."
+        Write-PSFMessage $errorMsg -Level Warning
     }
-    catch {
-        $errorMsg = $_
-        Write-PSFMessage "Error querying retention policies: $_" -Level Error
+    else {
+        try {
+            $retentionPolicies = @(Get-RetentionCompliancePolicy -ErrorAction Stop)
+        }
+        catch {
+            $errorMsg = $_.Exception.Message
+            Write-PSFMessage ("Error querying retention policies: {0}" -f $_) -Level Error
+        }
     }
     #endregion Data Collection
 
@@ -42,70 +50,108 @@ function Test-Assessment-35048 {
     $enabledPolicies = @()
     $passed = $false
     $customStatus = $null
+    $leadText = ''
 
     if ($errorMsg) {
-        $testResultMarkdown = "⚠️ Unable to determine retention policy configuration due to permissions issues or query failure.`n`n"
         $customStatus = 'Investigate'
+        $leadText = "⚠️ Unable to determine retention policy configuration due to permissions issues or query failure.`n`n**Details:** $errorMsg`n"
     }
     else {
         $enabledPolicies = @($retentionPolicies | Where-Object { $_.Enabled -eq $true })
 
         if ($enabledPolicies.Count -gt 0) {
             $passed = $true
-            $testResultMarkdown = "✅ $($enabledPolicies.Count) retention policy(ies) are configured and enabled.`n`n%TestResult%"
+            $leadText = "✅ $($enabledPolicies.Count) retention policy(ies) are configured and enabled.`n"
         }
         else {
             $passed = $false
             if ($retentionPolicies.Count -gt 0) {
-                $testResultMarkdown = "❌ $($retentionPolicies.Count) retention policy(ies) exist but none are enabled. Data lifecycle is not being managed.`n`n%TestResult%"
+                $leadText = "❌ $($retentionPolicies.Count) retention policy(ies) exist but none are enabled. Data lifecycle is not being managed.`n"
             }
             else {
-                $testResultMarkdown = "❌ No retention policies are configured. Data may be retained indefinitely or deleted prematurely, increasing breach exposure and compliance risk.`n`n%TestResult%"
+                $leadText = "❌ No retention policies are configured. Data may be retained indefinitely or deleted prematurely, increasing breach exposure and compliance risk.`n"
             }
         }
     }
     #endregion Assessment Logic
 
-    #region Report Generation
-    $mdInfo = ''
+    #region Evidence Markdown
+    $lines = New-Object System.Collections.Generic.List[string]
+    $lines.Add($leadText)
+    $lines.Add("")
 
-    if ($retentionPolicies.Count -gt 0) {
-        $mdInfo += "`n`n### [Retention Policies](https://purview.microsoft.com/datalifecyclemanagement/retentionpolicies)`n"
-        $mdInfo += "| Policy Name | Enabled | Workloads | Created |`n"
-        $mdInfo += "| :--- | :--- | :--- | :--- |`n"
+    if (-not $errorMsg) {
+        if ($retentionPolicies.Count -gt 0) {
+            $lines.Add("### Retention Policies")
+            $lines.Add("")
+            $lines.Add("Policy Name | Enabled | Workloads | Created")
+            $lines.Add(":---|:---:|:---|:---")
 
-        foreach ($policy in $retentionPolicies) {
-            $policyName = Get-SafeMarkdown -Text $policy.Name
-            $icon = if ($policy.Enabled) { '✅' } else { '❌' }
+            $sorted = $retentionPolicies | Sort-Object @{
+                Expression = { if ($_.Enabled) { 0 } else { 1 } }
+            }, @{
+                Expression = { $_.Name }
+            }
 
-            $workloads = @()
-            if ($policy.ExchangeLocation) { $workloads += 'Exchange' }
-            if ($policy.SharePointLocation) { $workloads += 'SharePoint' }
-            if ($policy.OneDriveLocation) { $workloads += 'OneDrive' }
-            if ($policy.SkypeLocation) { $workloads += 'Skype/Teams' }
-            if ($policy.ModernGroupLocation) { $workloads += 'M365 Groups' }
-            $workloadDisplay = if ($workloads.Count -gt 0) { $workloads -join ', ' } else { 'None specified' }
+            foreach ($policy in $sorted) {
+                $policyName = Get-SafeMarkdown -Text $policy.Name
+                $icon = if ($policy.Enabled) { '✅' } else { '❌' }
 
-            $created = Get-FormattedDate -Date $policy.WhenCreatedUTC
-            $mdInfo += "| $icon $policyName | $($policy.Enabled) | $workloadDisplay | $created |`n"
+                $workloads = @()
+                if ($policy.ExchangeLocation)     { $workloads += 'Exchange' }
+                if ($policy.SharePointLocation)  { $workloads += 'SharePoint' }
+                if ($policy.OneDriveLocation)    { $workloads += 'OneDrive' }
+                if ($policy.SkypeLocation)       { $workloads += 'Skype/Teams' }
+                if ($policy.ModernGroupLocation) { $workloads += 'M365 Groups' }
+
+                $workloadDisplay = if ($workloads.Count -gt 0) { $workloads -join ', ' } else { 'None specified' }
+                $created = Get-FormattedDate -Date $policy.WhenCreatedUTC
+
+                $lines.Add(("$icon $policyName | $($policy.Enabled) | $workloadDisplay | $created"))
+            }
+
+            $lines.Add("")
+        }
+
+        $lines.Add("### Summary")
+        $lines.Add("")
+        $lines.Add("Metric | Count")
+        $lines.Add(":---|---:")
+        $lines.Add(("Total retention policies | {0}" -f $retentionPolicies.Count))
+        $lines.Add(("Enabled retention policies | {0}" -f $enabledPolicies.Count))
+    }
+
+    $mdInfo = ($lines -join "`n")
+    #endregion Evidence Markdown
+
+    #region Load MD and Inject Evidence
+    $resultMarkdown = $null
+
+    if (Test-Path $mdPath) {
+        $baseMd = Get-Content -Path $mdPath -Raw
+        if ($baseMd -match '%TestResult%') {
+            $resultMarkdown = $baseMd -replace '%TestResult%', $mdInfo
+        }
+        else {
+            $resultMarkdown = $baseMd + "`n`n<!--- Results (auto-appended; missing %TestResult% token) --->`n" + $mdInfo
+            $customStatus = 'Investigate'
         }
     }
+    else {
+        $resultMarkdown = "⚠️ Missing markdown file: $mdPath`n`n$mdInfo"
+        $customStatus = 'Investigate'
+    }
+    #endregion Load MD and Inject Evidence
 
-    $mdInfo += "`n`n### Summary`n"
-    $mdInfo += "| Metric | Count |`n"
-    $mdInfo += "| :--- | :--- |`n"
-    $mdInfo += "| Total retention policies | $($retentionPolicies.Count) |`n"
-    $mdInfo += "| Enabled retention policies | $($enabledPolicies.Count) |"
-
-    $testResultMarkdown = $testResultMarkdown -replace '%TestResult%', $mdInfo
-    #endregion Report Generation
-
+    #region Output
     $params = @{
-        TestId = '35048'
-        Title  = 'Retention policies are configured'
+        TestId = "$testId"
+        Title  = $title
         Status = $passed
-        Result = $testResultMarkdown
+        Result = $resultMarkdown
     }
     if ($null -ne $customStatus) { $params.CustomStatus = $customStatus }
+
     Add-ZtTestResultDetail @params
+    #endregion Output
 }

@@ -150,10 +150,37 @@ function Invoke-ZtAssessment {
 		$ExportThrottleLimit = (Get-PSFConfigValue -FullName 'ZeroTrustAssessment.ThrottleLimit.Export' -Fallback 5),
 
 		[int]
-		$TestThrottleLimit = (Get-PSFConfigValue -FullName 'ZeroTrustAssessment.ThrottleLimit.Tests' -Fallback 5)
+		$TestThrottleLimit = (Get-PSFConfigValue -FullName 'ZeroTrustAssessment.ThrottleLimit.Tests' -Fallback 5),
+
+		# Best UX: optionally connect required services automatically
+		[switch]
+		$Connect,
+
+		# Optional pass-throughs to improve auto-connect reliability
+		[string]
+		$UserPrincipalName,
+
+		[string]
+		$SharePointAdminUrl
 	)
 
 	#region Utility Functions
+	function Get-ZtiRequiredServices {
+		[CmdletBinding()]
+		param(
+			[string]$Pillar,
+			[string[]]$Tests
+		)
+
+		$services = @('Graph', 'Azure')
+
+		if ($Pillar -eq 'Data' -or ($Tests -contains '35047')) {
+			$services += 'SecurityCompliance'
+			$services += 'SharePointOnline'
+		}
+
+		return ($services | Select-Object -Unique)
+	}
 	function Show-ZtiSecurityWarning {
 		[CmdletBinding()]
 		param (
@@ -308,6 +335,24 @@ function Invoke-ZtAssessment {
 
 	if (-not (Test-DatabaseAssembly)) {
 		return
+	}
+
+	# Auto-connect required services (Best UX) if requested
+	if ($Connect) {
+		$requiredServices = Get-ZtiRequiredServices -Pillar $Pillar -Tests $Tests
+
+		Write-Host
+		Write-Host "🔌 Auto-connecting required services: $($requiredServices -join ', ')" -ForegroundColor Yellow
+		Write-PSFMessage "Auto-connecting required services: $($requiredServices -join ', ')"
+
+		$connectParams = @{
+			Service = $requiredServices
+		}
+
+		if ($UserPrincipalName) { $connectParams.UserPrincipalName = $UserPrincipalName }
+		if ($SharePointAdminUrl) { $connectParams.SharePointAdminUrl = $SharePointAdminUrl }
+
+		Connect-ZtAssessment @connectParams
 	}
 
 	if (-not (Test-ZtContext)) {

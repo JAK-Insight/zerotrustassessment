@@ -1,10 +1,7 @@
-# src\powershell\tests\Test-Assessment.35050.ps1
-
 <#
 .SYNOPSIS
-    Audit log retention is extended beyond default
+ Audit log retention is extended beyond default
 #>
-
 function Test-Assessment-35050 {
     [ZtTest(
         Category = 'Data Security Posture Management',
@@ -21,20 +18,31 @@ function Test-Assessment-35050 {
     [CmdletBinding()]
     param()
 
-    #region Data Collection
     Write-PSFMessage '🟦 Start' -Tag Test -Level VeryVerbose
+
+    $testId   = 35050
+    $title    = 'Audit log retention is extended beyond default'
     $activity = 'Checking audit log retention configuration'
+    $mdPath   = Join-Path -Path $PSScriptRoot -ChildPath ("Test-Assessment.{0}.md" -f $testId)
+
+    #region Data Collection
     Write-ZtProgress -Activity $activity -Status 'Getting audit retention policies'
 
     $errorMsg = $null
     $retentionPolicies = @()
 
-    try {
-        $retentionPolicies = Get-UnifiedAuditLogRetentionPolicy -ErrorAction Stop
+    if (-not (Get-Command Get-UnifiedAuditLogRetentionPolicy -ErrorAction SilentlyContinue)) {
+        $errorMsg = "Get-UnifiedAuditLogRetentionPolicy cmdlet not found. Ensure Security & Compliance (IPPS) session is connected and Audit features are available."
+        Write-PSFMessage $errorMsg -Level Warning
     }
-    catch {
-        $errorMsg = $_
-        Write-PSFMessage "Error querying audit log retention policies: $_" -Level Error
+    else {
+        try {
+            $retentionPolicies = @(Get-UnifiedAuditLogRetentionPolicy -ErrorAction Stop)
+        }
+        catch {
+            $errorMsg = $_.Exception.Message
+            Write-PSFMessage ("Error querying audit log retention policies: {0}" -f $_) -Level Error
+        }
     }
     #endregion Data Collection
 
@@ -43,98 +51,144 @@ function Test-Assessment-35050 {
     $customStatus = $null
 
     if ($errorMsg) {
-        $testResultMarkdown = "⚠️ Unable to determine audit log retention configuration. This may indicate Audit Premium (E5) is not licensed or permissions are insufficient.`n`n"
-        $testResultMarkdown += "Default audit log retention periods apply:`n"
-        $testResultMarkdown += "- **E3 license**: 90 days`n"
-        $testResultMarkdown += "- **E5 license**: 180 days`n`n"
-        $testResultMarkdown += "Extended retention (up to 10 years) requires Microsoft 365 E5 Compliance or E5 eDiscovery and Audit add-on.`n`n%TestResult%"
         $customStatus = 'Investigate'
+        $leadText  = "⚠️ Unable to determine audit log retention configuration. This may indicate Audit Premium (E5) is not licensed or permissions are insufficient.`n`n"
+        $leadText += "Default audit log retention periods apply:`n"
+        $leadText += "- **E3 license**: 90 days`n"
+        $leadText += "- **E5 license**: 180 days`n`n"
+        $leadText += "Extended retention (up to 10 years) requires Microsoft 365 E5 Compliance or E5 eDiscovery and Audit add-on.`n"
+        $leadText += "`n**Details:** $errorMsg`n"
     }
     else {
         if ($retentionPolicies.Count -gt 0) {
-            # Check for policies with retention longer than default (180 days)
-            $extendedPolicies = @($retentionPolicies | Where-Object {
-                $_.RetentionDuration -and $_.RetentionDuration -ne 'None'
-            })
+            $extendedPolicies = @(
+                $retentionPolicies | Where-Object { $_.RetentionDuration -and $_.RetentionDuration -ne 'None' }
+            )
 
             if ($extendedPolicies.Count -gt 0) {
                 $passed = $true
-                $testResultMarkdown = "✅ $($extendedPolicies.Count) custom audit log retention policy(ies) are configured, extending retention beyond the default period.`n`n%TestResult%"
+                $leadText = "✅ $($extendedPolicies.Count) custom audit log retention policy(ies) are configured, extending retention beyond the default period.`n"
             }
             else {
                 $passed = $false
-                $testResultMarkdown = "❌ Audit log retention policies exist but none specify an extended retention duration.`n`n%TestResult%"
+                $leadText = "❌ Audit log retention policies exist but none specify an extended retention duration.`n"
             }
         }
         else {
             $passed = $false
-            $testResultMarkdown = "❌ No custom audit log retention policies are configured. The default retention period applies (90 days for E3, 180 days for E5). Historical audit data may not be available for incident investigations or compliance audits that require longer lookback periods.`n`n%TestResult%"
+            $leadText = "❌ No custom audit log retention policies are configured. The default retention period applies (90 days for E3, 180 days for E5). Historical audit data may not be available for incident investigations or compliance audits that require longer lookback periods.`n"
         }
     }
     #endregion Assessment Logic
 
-    #region Report Generation
-    $mdInfo = ''
+    #region Evidence Markdown
+    $lines = New-Object System.Collections.Generic.List[string]
+    $lines.Add($leadText)
+    $lines.Add("")
 
-    if ($retentionPolicies.Count -gt 0) {
-        $mdInfo += "`n`n### [Audit Log Retention Policies](https://purview.microsoft.com/audit/auditretentionpolicy)`n"
-        $mdInfo += "| Policy Name | Retention Duration | Record Types | Priority | Enabled |`n"
-        $mdInfo += "| :--- | :--- | :--- | :--- | :--- |`n"
+    if (-not $errorMsg) {
+        if ($retentionPolicies.Count -gt 0) {
+            $lines.Add("### Audit Log Retention Policies")
+            $lines.Add("")
+            $lines.Add("Policy Name | Retention Duration | Record Types | Priority | Enabled")
+            $lines.Add(":---|:---|:---|:---:|:---:")
 
-        foreach ($policy in $retentionPolicies) {
-            $policyName = Get-SafeMarkdown -Text $policy.Name
-
-            # Format retention duration
-            $durationDisplay = switch ($policy.RetentionDuration) {
-                'ThreeMonths' { '3 months' }
-                'SixMonths' { '6 months' }
-                'NineMonths' { '9 months' }
-                'TwelveMonths' { '1 year' }
-                'TenYears' { '10 years' }
-                'FiveYears' { '5 years' }
-                'ThreeYears' { '3 years' }
-                'SevenYears' { '7 years' }
-                default { $policy.RetentionDuration }
+            $sorted = $retentionPolicies | Sort-Object @{
+                Expression = { if ($_.Enabled -ne $false) { 0 } else { 1 } }
+            }, @{
+                Expression = { $_.Priority }
+            }, @{
+                Expression = { $_.Name }
             }
 
-            # Format record types
-            $recordTypes = if ($policy.RecordTypes -and $policy.RecordTypes.Count -gt 0) {
-                ($policy.RecordTypes | Select-Object -First 3) -join ', '
-                if ($policy.RecordTypes.Count -gt 3) { " (+$($policy.RecordTypes.Count - 3) more)" }
-            }
-            else {
-                'All record types'
+            foreach ($policy in $sorted) {
+                $policyName = Get-SafeMarkdown -Text $policy.Name
+
+                $durationDisplay = switch ($policy.RetentionDuration) {
+                    'ThreeMonths'  { '3 months' }
+                    'SixMonths'    { '6 months' }
+                    'NineMonths'   { '9 months' }
+                    'TwelveMonths' { '1 year' }
+                    'ThreeYears'   { '3 years' }
+                    'FiveYears'    { '5 years' }
+                    'SevenYears'   { '7 years' }
+                    'TenYears'     { '10 years' }
+                    default        { $policy.RetentionDuration }
+                }
+
+                $recordTypes = if ($policy.RecordTypes -and $policy.RecordTypes.Count -gt 0) {
+                    $top = ($policy.RecordTypes | Select-Object -First 3) -join ', '
+                    if ($policy.RecordTypes.Count -gt 3) { "$top (+$($policy.RecordTypes.Count - 3) more)" } else { $top }
+                }
+                else {
+                    'All record types'
+                }
+
+                $priority = if ($policy.Priority) { $policy.Priority } else { 'Default' }
+                $enabledIcon = if ($policy.Enabled -ne $false) { '✅' } else { '❌' }
+
+                $lines.Add(("$policyName | $durationDisplay | $recordTypes | $priority | $enabledIcon"))
             }
 
-            $priority = if ($policy.Priority) { $policy.Priority } else { 'Default' }
-            $enabledIcon = if ($policy.Enabled -ne $false) { '✅' } else { '❌' }
+            $lines.Add("")
+        }
 
-            $mdInfo += "| $policyName | $durationDisplay | $recordTypes | $priority | $enabledIcon |`n"
+        $lines.Add("### Guidance")
+        $lines.Add("")
+        $lines.Add("Consideration | Recommendation")
+        $lines.Add(":---|:---")
+        $lines.Add("Regulatory requirements | Align retention periods with your industry's compliance requirements (e.g., HIPAA, PCI-DSS, SOX)")
+        $lines.Add("Incident investigation | Advanced threats have average dwell times of 200+ days — ensure retention covers this window")
+        $lines.Add("High-value record types | Prioritize extended retention for: Exchange admin, SharePoint file operations, Azure AD sign-ins")
+        $lines.Add("Cost optimization | Use targeted policies for specific record types rather than extending all records")
+        $lines.Add("")
+
+        $lines.Add("### Summary")
+        $lines.Add("")
+        $lines.Add("Metric | Count")
+        $lines.Add(":---|---:")
+        $lines.Add(("Custom audit retention policies | {0}" -f $retentionPolicies.Count))
+    }
+    else {
+        # Even on Investigate, still show a small summary section to keep formatting consistent
+        $lines.Add("### Summary")
+        $lines.Add("")
+        $lines.Add("Metric | Count")
+        $lines.Add(":---|---:")
+        $lines.Add(("Custom audit retention policies | {0}" -f $retentionPolicies.Count))
+    }
+
+    $mdInfo = ($lines -join "`n")
+    #endregion Evidence Markdown
+
+    #region Load MD and Inject Evidence
+    $resultMarkdown = $null
+
+    if (Test-Path $mdPath) {
+        $baseMd = Get-Content -Path $mdPath -Raw
+        if ($baseMd -match '%TestResult%') {
+            $resultMarkdown = $baseMd -replace '%TestResult%', $mdInfo
+        }
+        else {
+            $resultMarkdown = $baseMd + "`n`n<!--- Results (auto-appended; missing %TestResult% token) --->`n" + $mdInfo
+            $customStatus = 'Investigate'
         }
     }
+    else {
+        $resultMarkdown = "⚠️ Missing markdown file: $mdPath`n`n$mdInfo"
+        $customStatus = 'Investigate'
+    }
+    #endregion Load MD and Inject Evidence
 
-    $mdInfo += "`n`n### Guidance`n"
-    $mdInfo += "| Consideration | Recommendation |`n"
-    $mdInfo += "| :--- | :--- |`n"
-    $mdInfo += "| Regulatory requirements | Align retention periods with your industry's compliance requirements (e.g., HIPAA, PCI-DSS, SOX) |`n"
-    $mdInfo += "| Incident investigation | Advanced threats have average dwell times of 200+ days — ensure retention covers this window |`n"
-    $mdInfo += "| High-value record types | Prioritize extended retention for: Exchange admin, SharePoint file operations, Azure AD sign-ins |`n"
-    $mdInfo += "| Cost optimization | Use targeted policies for specific record types rather than extending all records |"
-
-    $mdInfo += "`n`n### Summary`n"
-    $mdInfo += "| Metric | Count |`n"
-    $mdInfo += "| :--- | :--- |`n"
-    $mdInfo += "| Custom audit retention policies | $($retentionPolicies.Count) |"
-
-    $testResultMarkdown = $testResultMarkdown -replace '%TestResult%', $mdInfo
-    #endregion Report Generation
-
+    #region Output
     $params = @{
-        TestId = '35050'
-        Title  = 'Audit log retention is extended beyond default'
+        TestId = "$testId"
+        Title  = $title
         Status = $passed
-        Result = $testResultMarkdown
+        Result = $resultMarkdown
     }
     if ($null -ne $customStatus) { $params.CustomStatus = $customStatus }
+
     Add-ZtTestResultDetail @params
+    #endregion Output
 }

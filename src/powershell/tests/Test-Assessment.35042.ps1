@@ -1,10 +1,7 @@
-# src\powershell\tests\Test-Assessment.35042.ps1
-
 <#
 .SYNOPSIS
-    DLP policies are configured for Microsoft Teams
+ DLP policies are configured for Microsoft Teams
 #>
-
 function Test-Assessment-35042 {
     [ZtTest(
         Category = 'Data Loss Prevention (DLP)',
@@ -21,103 +18,176 @@ function Test-Assessment-35042 {
     [CmdletBinding()]
     param()
 
-    #region Data Collection
     Write-PSFMessage '🟦 Start' -Tag Test -Level VeryVerbose
+
+    $testId   = 35042
+    $title    = 'DLP policies are configured for Microsoft Teams'
     $activity = 'Checking DLP policy coverage for Microsoft Teams'
+    $mdPath   = Join-Path -Path $PSScriptRoot -ChildPath ("Test-Assessment.{0}.md" -f $testId)
+
+    #region Data Collection
     Write-ZtProgress -Activity $activity -Status 'Getting DLP policies'
 
     $errorMsg = $null
     $dlpPolicies = @()
 
-    try {
-        $dlpPolicies = Get-DlpCompliancePolicy -ErrorAction Stop
+    if (-not (Get-Command Get-DlpCompliancePolicy -ErrorAction SilentlyContinue)) {
+        $errorMsg = "Get-DlpCompliancePolicy cmdlet not found. Ensure Security & Compliance (IPPS) session is connected."
+        Write-PSFMessage $errorMsg -Level Warning
     }
-    catch {
-        $errorMsg = $_
-        Write-PSFMessage "Error querying DLP policies: $_" -Level Error
+    else {
+        try {
+            $dlpPolicies = @(Get-DlpCompliancePolicy -ErrorAction Stop)
+        }
+        catch {
+            $errorMsg = $_.Exception.Message
+            Write-PSFMessage ("Error querying DLP policies: {0}" -f $_) -Level Error
+        }
     }
     #endregion Data Collection
 
     #region Assessment Logic
-    $teamsPolicies = @()
-    $teamsEnabledPolicies = @()
+    $teamsPolicies = New-Object System.Collections.Generic.List[object]
+    $teamsEnabledPolicies = New-Object System.Collections.Generic.List[object]
+
     $passed = $false
     $customStatus = $null
+    $leadText = ''
 
     if ($errorMsg) {
-        $testResultMarkdown = "⚠️ Unable to determine DLP policy coverage for Microsoft Teams due to permissions issues or query failure.`n`n"
         $customStatus = 'Investigate'
+        $leadText = "⚠️ Unable to determine DLP policy coverage for Microsoft Teams due to permissions issues or query failure.`n`n**Details:** $errorMsg`n"
     }
     else {
         foreach ($policy in $dlpPolicies) {
             $hasTeams = $false
+
             if ($policy.TeamsLocation) {
-                $locations = @($policy.TeamsLocation)
-                if ($locations.Count -gt 0) { $hasTeams = $true }
+                if (@($policy.TeamsLocation).Count -gt 0) { $hasTeams = $true }
             }
 
             if ($hasTeams) {
-                $teamsPolicies += $policy
+                $teamsPolicies.Add($policy)
+
                 if ($policy.Mode -eq 'Enable') {
-                    $teamsEnabledPolicies += $policy
+                    $teamsEnabledPolicies.Add($policy)
                 }
             }
         }
 
         if ($teamsEnabledPolicies.Count -gt 0) {
             $passed = $true
-            $testResultMarkdown = "✅ $($teamsEnabledPolicies.Count) DLP policy(ies) are configured and enabled for Microsoft Teams chat and channel messages.`n`n%TestResult%"
+            $leadText = "✅ $($teamsEnabledPolicies.Count) DLP policy(ies) are configured and enabled for Microsoft Teams chat and channel messages.`n"
         }
         elseif ($teamsPolicies.Count -gt 0) {
             $passed = $false
-            $testResultMarkdown = "❌ $($teamsPolicies.Count) DLP policy(ies) include Teams but none are in enforcement mode.`n`n%TestResult%"
+            $leadText = "❌ $($teamsPolicies.Count) DLP policy(ies) include Teams but none are in enforcement mode.`n"
         }
         else {
             $passed = $false
-            $testResultMarkdown = "❌ No DLP policies are configured that include Microsoft Teams. Sensitive data shared in chat and channel messages is not monitored or protected.`n`n%TestResult%"
+            $leadText = "❌ No DLP policies are configured that include Microsoft Teams. Sensitive data shared in chat and channel messages is not monitored or protected.`n"
         }
     }
     #endregion Assessment Logic
 
-    #region Report Generation
-    $mdInfo = ''
+    #region Evidence Markdown
+    $lines = New-Object System.Collections.Generic.List[string]
+    $lines.Add($leadText)
+    $lines.Add("")
 
-    if ($teamsPolicies.Count -gt 0) {
-        $mdInfo += "`n`n### [DLP Policies covering Microsoft Teams](https://purview.microsoft.com/datalossprevention/policies)`n"
-        $mdInfo += "| Policy Name | Mode | Teams Location | Created |`n"
-        $mdInfo += "| :--- | :--- | :--- | :--- |`n"
+    if (-not $errorMsg) {
 
-        foreach ($policy in $teamsPolicies) {
-            $policyName = Get-SafeMarkdown -Text $policy.Name
-            $icon = if ($policy.Mode -eq 'Enable') { '✅' } else { '⚠️' }
-            $modeDisplay = switch ($policy.Mode) {
-                'Enable' { 'Enforcing' }
-                'TestWithNotifications' { 'Simulation (with tips)' }
-                'TestWithoutNotifications' { 'Simulation (no tips)' }
-                default { $policy.Mode }
+        if ($teamsPolicies.Count -gt 0) {
+            $lines.Add("### DLP Policies covering Microsoft Teams")
+            $lines.Add("")
+            $lines.Add("Policy Name | Mode | Teams Location | Created")
+            $lines.Add(":---|:---|:---|:---")
+
+            # Sort: enforcing first, then simulation, then other; stable by name
+            $sorted = $teamsPolicies | Sort-Object @{
+                Expression = {
+                    switch ($_.Mode) {
+                        'Enable' { 0 }
+                        'TestWithNotifications' { 1 }
+                        'TestWithoutNotifications' { 2 }
+                        default { 3 }
+                    }
+                }
+            }, @{
+                Expression = { $_.Name }
             }
-            $teamsLoc = ($policy.TeamsLocation | ForEach-Object { $_.Name }) -join ', '
-            $created = Get-FormattedDate -Date $policy.WhenCreatedUTC
-            $mdInfo += "| $icon $policyName | $modeDisplay | $teamsLoc | $created |`n"
+
+            foreach ($policy in $sorted) {
+                $policyName = Get-SafeMarkdown -Text $policy.Name
+                $icon = if ($policy.Mode -eq 'Enable') { '✅' } else { '⚠️' }
+
+                $modeDisplay = switch ($policy.Mode) {
+                    'Enable' { 'Enforcing' }
+                    'TestWithNotifications' { 'Simulation (with tips)' }
+                    'TestWithoutNotifications' { 'Simulation (no tips)' }
+                    default { $policy.Mode }
+                }
+
+                $teamsLoc = ($policy.TeamsLocation | ForEach-Object {
+                    if ($_.Name) { $_.Name } else { $_.ToString() }
+                }) -join ', '
+
+                $teamsLoc = if ([string]::IsNullOrWhiteSpace($teamsLoc)) { 'All' } else { $teamsLoc }
+                $teamsLoc = Get-SafeMarkdown -Text $teamsLoc
+
+                $created = Get-FormattedDate -Date $policy.WhenCreatedUTC
+
+                $lines.Add(("$icon $policyName | $modeDisplay | $teamsLoc | $created"))
+            }
+
+            $lines.Add("")
+        }
+        elseif ($dlpPolicies.Count -gt 0) {
+            $lines.Add("### Note")
+            $lines.Add(("Your tenant has {0} DLP policy(ies), but none include Microsoft Teams as a protected location." -f $dlpPolicies.Count))
+            $lines.Add("")
+        }
+
+        $lines.Add("### Summary")
+        $lines.Add("")
+        $lines.Add("Metric | Count")
+        $lines.Add(":---|---:")
+        $lines.Add(("Total DLP policies in tenant | {0}" -f $dlpPolicies.Count))
+        $lines.Add(("DLP policies covering Teams | {0}" -f $teamsPolicies.Count))
+        $lines.Add(("DLP policies enforcing on Teams | {0}" -f $teamsEnabledPolicies.Count))
+    }
+
+    $mdInfo = ($lines -join "`n")
+    #endregion Evidence Markdown
+
+    #region Load MD and Inject Evidence
+    $resultMarkdown = $null
+
+    if (Test-Path $mdPath) {
+        $baseMd = Get-Content -Path $mdPath -Raw
+        if ($baseMd -match '%TestResult%') {
+            $resultMarkdown = $baseMd -replace '%TestResult%', $mdInfo
+        }
+        else {
+            $resultMarkdown = $baseMd + "`n`n<!--- Results (auto-appended; missing %TestResult% token) --->`n" + $mdInfo
+            $customStatus = 'Investigate'
         }
     }
+    else {
+        $resultMarkdown = "⚠️ Missing markdown file: $mdPath`n`n$mdInfo"
+        $customStatus = 'Investigate'
+    }
+    #endregion Load MD and Inject Evidence
 
-    $mdInfo += "`n`n### Summary`n"
-    $mdInfo += "| Metric | Count |`n"
-    $mdInfo += "| :--- | :--- |`n"
-    $mdInfo += "| Total DLP policies in tenant | $($dlpPolicies.Count) |`n"
-    $mdInfo += "| DLP policies covering Teams | $($teamsPolicies.Count) |`n"
-    $mdInfo += "| DLP policies enforcing on Teams | $($teamsEnabledPolicies.Count) |"
-
-    $testResultMarkdown = $testResultMarkdown -replace '%TestResult%', $mdInfo
-    #endregion Report Generation
-
+    #region Output
     $params = @{
-        TestId = '35042'
-        Title  = 'DLP policies are configured for Microsoft Teams'
+        TestId = "$testId"
+        Title  = $title
         Status = $passed
-        Result = $testResultMarkdown
+        Result = $resultMarkdown
     }
     if ($null -ne $customStatus) { $params.CustomStatus = $customStatus }
+
     Add-ZtTestResultDetail @params
+    #endregion Output
 }

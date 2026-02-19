@@ -1,10 +1,7 @@
-# src\powershell\tests\Test-Assessment.35047.ps1
-
 <#
 .SYNOPSIS
-    External sharing for SharePoint is restricted
+ External sharing for SharePoint is restricted
 #>
-
 function Test-Assessment-35047 {
     [ZtTest(
         Category = 'Access Control',
@@ -21,73 +18,82 @@ function Test-Assessment-35047 {
     [CmdletBinding()]
     param()
 
-    #region Data Collection
     Write-PSFMessage '🟦 Start' -Tag Test -Level VeryVerbose
+
+    $testId   = 35047
+    $title    = 'External sharing for SharePoint is restricted'
     $activity = 'Checking SharePoint external sharing configuration'
+    $mdPath   = Join-Path -Path $PSScriptRoot -ChildPath ("Test-Assessment.{0}.md" -f $testId)
+
     Write-ZtProgress -Activity $activity -Status 'Getting SPO tenant settings'
 
-    $errorMsg = $null
-    $spoTenant = $null
-
-    try {
-        $spoTenant = Get-SPOTenant -ErrorAction Stop
-    }
-    catch {
-        $errorMsg = $_
-        Write-PSFMessage "Error querying SPO tenant settings: $_" -Level Error
-    }
-    #endregion Data Collection
-
-    #region Assessment Logic
     $passed = $false
     $customStatus = $null
+    $spoTenant = $null
+    $errorMsg = $null
 
-    if ($errorMsg) {
-        $testResultMarkdown = "⚠️ Unable to determine SharePoint external sharing configuration due to permissions issues or query failure.`n`n"
+    # --- Stronger pre-checks ---
+    if (-not (Get-Command Get-SPOTenant -ErrorAction SilentlyContinue)) {
         $customStatus = 'Investigate'
+        $errorMsg = "Get-SPOTenant cmdlet not found. Install/import the SharePoint Online Management Shell and connect using Connect-SPOService -Url https://<tenant>-admin.sharepoint.com."
+        Write-PSFMessage $errorMsg -Level Warning
     }
     else {
-        # SharingCapability values:
-        # ExternalUserAndGuestSharing (Anyone) - Most permissive
-        # ExternalUserSharingOnly (New and existing guests)
-        # ExistingExternalUserSharingOnly (Existing guests only)
-        # Disabled (Only people in your organization)
+        try {
+            $spoTenant = Get-SPOTenant -ErrorAction Stop
+        }
+        catch {
+            $customStatus = 'Investigate'
+            # Include exception message so the report shows why (not connected vs access denied)
+            $errorMsg = $_.Exception.Message
+            Write-PSFMessage ("Error querying SPO tenant settings: {0}" -f $_) -Level Error
+        }
+    }
 
+    # --- Assessment Logic (same intent as your existing script) ---
+    $leadText = ''
+    if ($errorMsg) {
+        $leadText = "⚠️ Unable to determine SharePoint external sharing configuration.`n`n**Details:** $errorMsg`n"
+    }
+    else {
+        # SharingCapability values described in your script. [1](https://insightonline-my.sharepoint.com/personal/joshua_kaye_insight_com/Documents/Microsoft%20Copilot%20Chat%20Files/Test-Assessment.35047.ps1.txt)
         $sharingLevel = $spoTenant.SharingCapability
 
         switch ($sharingLevel) {
             'Disabled' {
                 $passed = $true
-                $testResultMarkdown = "✅ SharePoint external sharing is disabled. Only people within the organization can access content.`n`n%TestResult%"
+                $leadText = "✅ SharePoint external sharing is disabled. Only people within the organization can access content.`n"
             }
             'ExistingExternalUserSharingOnly' {
                 $passed = $true
-                $testResultMarkdown = "✅ SharePoint external sharing is restricted to existing guests only. New external users cannot be invited.`n`n%TestResult%"
+                $leadText = "✅ SharePoint external sharing is restricted to existing guests only. New external users cannot be invited.`n"
             }
             'ExternalUserSharingOnly' {
                 $passed = $true
-                $testResultMarkdown = "✅ SharePoint external sharing requires authentication. New and existing guests must sign in to access shared content.`n`n%TestResult%"
+                $leadText = "✅ SharePoint external sharing requires authentication. New and existing guests must sign in to access shared content.`n"
             }
             'ExternalUserAndGuestSharing' {
                 $passed = $false
-                $testResultMarkdown = "❌ SharePoint external sharing is set to the most permissive level (Anyone). Documents can be shared via anonymous links that require no sign-in, creating significant data leakage risk.`n`n%TestResult%"
+                $leadText = "❌ SharePoint external sharing is set to the most permissive level (Anyone). Anonymous links can be used without sign-in, increasing data leakage risk.`n"
             }
             default {
                 $passed = $false
-                $testResultMarkdown = "⚠️ SharePoint external sharing level could not be determined: $sharingLevel`n`n%TestResult%"
                 $customStatus = 'Investigate'
+                $leadText = "⚠️ SharePoint external sharing level could not be determined: $sharingLevel`n"
             }
         }
     }
-    #endregion Assessment Logic
 
-    #region Report Generation
-    $mdInfo = ''
+    # --- Evidence Markdown ---
+    $lines = New-Object System.Collections.Generic.List[string]
+    $lines.Add($leadText)
+    $lines.Add("")
 
     if ($spoTenant) {
-        $mdInfo += "`n`n### [SharePoint Sharing Configuration](https://admin.microsoft.com/sharepoint?page=sharing)`n"
-        $mdInfo += "| Setting | Value |`n"
-        $mdInfo += "| :--- | :--- |`n"
+        $lines.Add("### SharePoint Sharing Configuration")
+        $lines.Add("")
+        $lines.Add("Setting | Value")
+        $lines.Add(":---|:---")
 
         $sharingDisplay = switch ($spoTenant.SharingCapability) {
             'ExternalUserAndGuestSharing' { '❌ Anyone (anonymous links allowed)' }
@@ -97,13 +103,13 @@ function Test-Assessment-35047 {
             default { $spoTenant.SharingCapability }
         }
 
-        $mdInfo += "| Sharing capability | $sharingDisplay |`n"
+        $lines.Add(("Sharing capability | {0}" -f $sharingDisplay))
 
         if ($spoTenant.RequireAnonymousLinksExpireInDays -and $spoTenant.RequireAnonymousLinksExpireInDays -gt 0) {
-            $mdInfo += "| Anonymous link expiration | $($spoTenant.RequireAnonymousLinksExpireInDays) days |`n"
+            $lines.Add(("Anonymous link expiration | {0} days" -f $spoTenant.RequireAnonymousLinksExpireInDays))
         }
         else {
-            $mdInfo += "| Anonymous link expiration | Not configured |`n"
+            $lines.Add("Anonymous link expiration | Not configured")
         }
 
         $defaultLinkType = switch ($spoTenant.DefaultSharingLinkType) {
@@ -113,25 +119,43 @@ function Test-Assessment-35047 {
             'AnonymousAccess' { '⚠️ Anyone with the link' }
             default { $spoTenant.DefaultSharingLinkType }
         }
-        $mdInfo += "| Default sharing link type | $defaultLinkType |`n"
+        $lines.Add(("Default sharing link type | {0}" -f $defaultLinkType))
 
         $defaultPermission = switch ($spoTenant.DefaultLinkPermission) {
             'View' { 'View only' }
             'Edit' { '⚠️ Edit' }
             default { $spoTenant.DefaultLinkPermission }
         }
-        $mdInfo += "| Default link permission | $defaultPermission |"
+        $lines.Add(("Default link permission | {0}" -f $defaultPermission))
     }
 
-    $testResultMarkdown = $testResultMarkdown -replace '%TestResult%', $mdInfo
-    #endregion Report Generation
+    $mdInfo = ($lines -join "`n")
 
+    # --- Load MD and Inject Evidence ---
+    $resultMarkdown = $null
+    if (Test-Path $mdPath) {
+        $baseMd = Get-Content -Path $mdPath -Raw
+        if ($baseMd -match '%TestResult%') {
+            $resultMarkdown = $baseMd -replace '%TestResult%', $mdInfo
+        }
+        else {
+            $resultMarkdown = $baseMd + "`n`n<!--- Results (auto-appended; missing %TestResult% token) --->`n" + $mdInfo
+            $customStatus = 'Investigate'
+        }
+    }
+    else {
+        $resultMarkdown = "⚠️ Missing markdown file: $mdPath`n`n$mdInfo"
+        $customStatus = 'Investigate'
+    }
+
+    # --- Output ---
     $params = @{
-        TestId = '35047'
-        Title  = 'External sharing for SharePoint is restricted'
+        TestId = "$testId"
+        Title  = $title
         Status = $passed
-        Result = $testResultMarkdown
+        Result = $resultMarkdown
     }
     if ($null -ne $customStatus) { $params.CustomStatus = $customStatus }
+
     Add-ZtTestResultDetail @params
 }

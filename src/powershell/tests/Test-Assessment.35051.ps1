@@ -1,10 +1,7 @@
-# src\powershell\tests\Test-Assessment.35051.ps1
-
 <#
 .SYNOPSIS
-    Insider Risk Management policies are configured
+ Insider Risk Management policies are configured
 #>
-
 function Test-Assessment-35051 {
     [ZtTest(
         Category = 'Data Security Posture Management',
@@ -21,22 +18,30 @@ function Test-Assessment-35051 {
     [CmdletBinding()]
     param()
 
-    #region Data Collection
     Write-PSFMessage '🟦 Start' -Tag Test -Level VeryVerbose
+
+    $testId   = 35051
+    $title    = 'Insider Risk Management policies are configured'
     $activity = 'Checking Insider Risk Management policy configuration'
+    $mdPath   = Join-Path -Path $PSScriptRoot -ChildPath ("Test-Assessment.{0}.md" -f $testId)
+
+    #region Data Collection
     Write-ZtProgress -Activity $activity -Status 'Getting Insider Risk Management policies'
 
     $errorMsg = $null
     $irmPolicies = @()
 
     try {
+        if (-not (Get-Command Get-InsiderRiskPolicy -ErrorAction SilentlyContinue)) {
+            throw [System.Management.Automation.CommandNotFoundException]::new("Get-InsiderRiskPolicy cmdlet not found.")
+        }
+
         # Query IRM policies via the Compliance PowerShell cmdlet
-        $irmPolicies = Get-InsiderRiskPolicy -ErrorAction Stop
+        $irmPolicies = @(Get-InsiderRiskPolicy -ErrorAction Stop)
     }
     catch {
-        # If the cmdlet is not available, try alternative approach
         $errorMsg = $_
-        Write-PSFMessage "Error querying Insider Risk Management policies: $_" -Level Error
+        Write-PSFMessage ("Error querying Insider Risk Management policies: {0}" -f $_) -Level Error
     }
     #endregion Data Collection
 
@@ -44,23 +49,23 @@ function Test-Assessment-35051 {
     $enabledPolicies = @()
     $passed = $false
     $customStatus = $null
+    $leadText = ""
 
     if ($errorMsg) {
         # IRM cmdlets may not be available in all environments or may require specific permissions
-        # Check if this is a permissions/licensing issue vs. a real error
         $errorString = $errorMsg.ToString()
 
-        if ($errorString -match 'not recognized' -or $errorString -match 'CommandNotFoundException') {
-            $testResultMarkdown = "⚠️ Unable to assess Insider Risk Management policies. The `Get-InsiderRiskPolicy` cmdlet is not available.`n`n"
-            $testResultMarkdown += "This may indicate:`n"
-            $testResultMarkdown += "- Insider Risk Management is not licensed (requires Microsoft 365 E5 or E5 Compliance add-on)`n"
-            $testResultMarkdown += "- The Security & Compliance PowerShell module does not include IRM cmdlets in this environment`n"
-            $testResultMarkdown += "- Insufficient permissions to query IRM policies`n`n"
-            $testResultMarkdown += "**Manual verification:** Navigate to [Microsoft Purview Insider Risk Management](https://purview.microsoft.com/insiderriskmanagement/policies) to verify policy configuration.`n`n%TestResult%"
+        if ($errorString -match 'not recognized' -or $errorString -match 'CommandNotFoundException' -or $errorString -match 'Get-InsiderRiskPolicy') {
+            $leadText  = "⚠️ Unable to assess Insider Risk Management policies. The `Get-InsiderRiskPolicy` cmdlet is not available.`n`n"
+            $leadText += "This may indicate:`n"
+            $leadText += "- Insider Risk Management is not licensed (requires Microsoft 365 E5 or E5 Compliance add-on)`n"
+            $leadText += "- The Security & Compliance PowerShell module does not include IRM cmdlets in this environment`n"
+            $leadText += "- Insufficient permissions to query IRM policies`n`n"
+            $leadText += "**Manual verification:** Navigate to https://purview.microsoft.com/insiderriskmanagement/policies to verify policy configuration.`n"
             $customStatus = 'Investigate'
         }
         else {
-            $testResultMarkdown = "⚠️ Unable to determine Insider Risk Management policy configuration due to an error: $errorString`n`n%TestResult%"
+            $leadText = "⚠️ Unable to determine Insider Risk Management policy configuration due to an error: $errorString`n"
             $customStatus = 'Investigate'
         }
     }
@@ -69,42 +74,49 @@ function Test-Assessment-35051 {
 
         if ($enabledPolicies.Count -gt 0) {
             $passed = $true
-            $testResultMarkdown = "✅ $($enabledPolicies.Count) Insider Risk Management policy(ies) are configured and enabled, providing detection of risky user behaviors that may lead to data theft or leakage.`n`n%TestResult%"
+            $leadText = "✅ $($enabledPolicies.Count) Insider Risk Management policy(ies) are configured and enabled, providing detection of risky user behaviors that may lead to data theft or leakage.`n"
         }
         elseif ($irmPolicies.Count -gt 0) {
             $passed = $false
-            $testResultMarkdown = "❌ $($irmPolicies.Count) Insider Risk Management policy(ies) exist but none are enabled. Policies must be enabled to detect insider threats.`n`n%TestResult%"
+            $leadText = "❌ $($irmPolicies.Count) Insider Risk Management policy(ies) exist but none are enabled. Policies must be enabled to detect insider threats.`n"
         }
         else {
             $passed = $false
-            $testResultMarkdown = "❌ No Insider Risk Management policies are configured. The organization lacks the ability to detect and respond to risky user behaviors such as data theft, data leakage, or security policy violations by insiders.`n`n%TestResult%"
+            $leadText = "❌ No Insider Risk Management policies are configured. The organization lacks the ability to detect and respond to risky user behaviors such as data theft, data leakage, or security policy violations by insiders.`n"
         }
     }
     #endregion Assessment Logic
 
-    #region Report Generation
-    $mdInfo = ''
+    #region Evidence Markdown
+    $lines = New-Object System.Collections.Generic.List[string]
+    $lines.Add($leadText)
+    $lines.Add("")
 
     if ($irmPolicies.Count -gt 0) {
-        $mdInfo += "`n`n### [Insider Risk Management Policies](https://purview.microsoft.com/insiderriskmanagement/policies)`n"
-        $mdInfo += "| Policy Name | Enabled | Template | Created |`n"
-        $mdInfo += "| :--- | :--- | :--- | :--- |`n"
+        $lines.Add("### Insider Risk Management Policies")
+        $lines.Add("")
+        $lines.Add("Policy Name | Enabled | Template | Created")
+        $lines.Add(":---|:---:|:---|:---")
 
-        foreach ($policy in $irmPolicies) {
+        $sorted = $irmPolicies | Sort-Object @{
+            Expression = { if ($_.IsEnabled -eq $true -or $_.Enabled -eq $true) { 0 } else { 1 } }
+        }, @{
+            Expression = { $_.Name }
+        }
+
+        foreach ($policy in $sorted) {
             $policyName = Get-SafeMarkdown -Text $policy.Name
+
             $isEnabled = if ($policy.IsEnabled -eq $true -or $policy.Enabled -eq $true) { $true } else { $false }
             $enabledIcon = if ($isEnabled) { '✅' } else { '❌' }
 
-            # Try to get the template name
             $templateName = if ($policy.InsiderRiskScenario) {
                 $policy.InsiderRiskScenario
             }
             elseif ($policy.Template) {
                 $policy.Template
             }
-            else {
-                'N/A'
-            }
+            else { 'N/A' }
 
             $created = if ($policy.WhenCreatedUTC) {
                 Get-FormattedDate -Date $policy.WhenCreatedUTC
@@ -112,38 +124,64 @@ function Test-Assessment-35051 {
             elseif ($policy.CreatedDate) {
                 Get-FormattedDate -Date $policy.CreatedDate
             }
-            else {
-                'N/A'
-            }
+            else { 'N/A' }
 
-            $mdInfo += "| $enabledIcon $policyName | $isEnabled | $templateName | $created |`n"
+            $lines.Add(("$enabledIcon $policyName | $isEnabled | $templateName | $created"))
+        }
+
+        $lines.Add("")
+    }
+
+    # Recommended templates (always show)
+    $lines.Add("### Recommended Policy Templates")
+    $lines.Add("")
+    $lines.Add("Template | Description | Priority")
+    $lines.Add(":---|:---|:---")
+    $lines.Add("Data theft by departing users | Detects data exfiltration patterns by users who have submitted resignation or are being terminated | High")
+    $lines.Add("Data leaks | Detects unusual sharing, downloading, or exfiltration of sensitive data | High")
+    $lines.Add("Data leaks by priority users | Focused monitoring on users with access to sensitive data or elevated privileges | Medium")
+    $lines.Add("Data leaks by risky users | Triggered by HR events, performance issues, or other risk indicators | Medium")
+    $lines.Add("Security policy violations | Detects actions that violate security policies such as disabling security tools | Medium")
+    $lines.Add("")
+
+    $lines.Add("### Summary")
+    $lines.Add("")
+    $lines.Add("Metric | Count")
+    $lines.Add(":---|---:")
+    $lines.Add(("Total IRM policies | {0}" -f $irmPolicies.Count))
+    $lines.Add(("Enabled IRM policies | {0}" -f $enabledPolicies.Count))
+
+    $mdInfo = ($lines -join "`n")
+    #endregion Evidence Markdown
+
+    #region Load MD and Inject Evidence
+    $resultMarkdown = $null
+
+    if (Test-Path $mdPath) {
+        $baseMd = Get-Content -Path $mdPath -Raw
+        if ($baseMd -match '%TestResult%') {
+            $resultMarkdown = $baseMd -replace '%TestResult%', $mdInfo
+        }
+        else {
+            $resultMarkdown = $baseMd + "`n`n<!--- Results (auto-appended; missing %TestResult% token) --->`n" + $mdInfo
+            $customStatus = 'Investigate'
         }
     }
+    else {
+        $resultMarkdown = "⚠️ Missing markdown file: $mdPath`n`n$mdInfo"
+        $customStatus = 'Investigate'
+    }
+    #endregion Load MD and Inject Evidence
 
-    $mdInfo += "`n`n### Recommended Policy Templates`n"
-    $mdInfo += "| Template | Description | Priority |`n"
-    $mdInfo += "| :--- | :--- | :--- |`n"
-    $mdInfo += "| Data theft by departing users | Detects data exfiltration patterns by users who have submitted resignation or are being terminated | High |`n"
-    $mdInfo += "| Data leaks | Detects unusual sharing, downloading, or exfiltration of sensitive data | High |`n"
-    $mdInfo += "| Data leaks by priority users | Focused monitoring on users with access to sensitive data or elevated privileges | Medium |`n"
-    $mdInfo += "| Data leaks by risky users | Triggered by HR events, performance issues, or other risk indicators | Medium |`n"
-    $mdInfo += "| Security policy violations | Detects actions that violate security policies such as disabling security tools | Medium |"
-
-    $mdInfo += "`n`n### Summary`n"
-    $mdInfo += "| Metric | Count |`n"
-    $mdInfo += "| :--- | :--- |`n"
-    $mdInfo += "| Total IRM policies | $($irmPolicies.Count) |`n"
-    $mdInfo += "| Enabled IRM policies | $($enabledPolicies.Count) |"
-
-    $testResultMarkdown = $testResultMarkdown -replace '%TestResult%', $mdInfo
-    #endregion Report Generation
-
+    #region Output
     $params = @{
-        TestId = '35051'
-        Title  = 'Insider Risk Management policies are configured'
+        TestId = "$testId"
+        Title  = $title
         Status = $passed
-        Result = $testResultMarkdown
+        Result = $resultMarkdown
     }
     if ($null -ne $customStatus) { $params.CustomStatus = $customStatus }
+
     Add-ZtTestResultDetail @params
+    #endregion Output
 }
