@@ -86,6 +86,9 @@ function Connect-ZtAssessment {
 		[ValidateSet('All', 'Azure', 'AipService', 'ExchangeOnline', 'Graph', 'SecurityCompliance', 'SharePointOnline')]
 		[string[]]$Service = 'Graph',
 
+		# Additional delegated Graph scopes to request (optional).
+		[string[]] $AdditionalGraphScopes,
+
 		# The Exchange environment to connect to. Default is O365Default. Supported values include O365China, O365Default, O365GermanyCloud, O365USGovDoD, O365USGovGCCHigh.
 		[ValidateSet('O365China', 'O365Default', 'O365GermanyCloud', 'O365USGovDoD', 'O365USGovGCCHigh')]
 		[string]$ExchangeEnvironmentName = 'O365Default',
@@ -110,7 +113,20 @@ function Connect-ZtAssessment {
 		$params.Certificate = $Certificate
 	}
 	else {
-		$params.Scopes = Get-ZtGraphScope
+		$scopes = @()
+		$scopes += @(Get-ZtGraphScope)
+
+		if ($AdditionalGraphScopes) {
+			$scopes += @($AdditionalGraphScopes)
+		}
+
+		# De-duplicate while preserving order
+		$params.Scopes = [System.Collections.Generic.List[string]]::new()
+		foreach ($s in $scopes) {
+			if (-not [string]::IsNullOrWhiteSpace($s) -and -not $params.Scopes.Contains($s)) {
+				$params.Scopes.Add($s)
+			}
+		}
 	}
 	if (-not $UseTokenCache) {
 		$params.ContextScope = 'Process'

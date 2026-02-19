@@ -222,3 +222,75 @@ Standardizing all tests to use matching MD templates in src\powershell\tests wit
 Added opt-in -Connect to Invoke-ZtAssessment to auto-call Connect-ZtAssessment with required services (Data uses SecurityCompliance + SharePointOnline).
 Current blocker: Test-Assessment.35040.ps1 parse error due to truncated URL; correct is https://purview.microsoft.com/datalossprevention/policies. Fix 35040, parse-check all tests, reload module, then run: Invoke-ZtAssessment -Preview -Pillar Data -Connect -ShowLog -Verbose.
 ```
+Context Summary – Zero Trust Assessment Test Formatting & Reporting
+We’ve been working on Microsoft Zero Trust assessment PowerShell tests, specifically Test‑Assessment‑35049 (“Data access reviews are configured for sensitive resources”), focusing on correctness, formatting, and report output structure rather than Graph logic.
+What’s been validated
+
+The PowerShell test logic is correct:
+
+Typed-first Microsoft Graph SDK usage with REST fallback
+Correct detection of recurring access reviews
+Optional sampling of access review instances
+Proper pass/fail evaluation
+
+
+The test executes successfully and produces accurate evidence.
+Graph permissions and module behavior are functioning as intended.
+
+Markdown (.md) handling
+
+Each test has a companion markdown file (Test-Assessment.<id>.md) containing:
+
+Description
+Remediation steps
+Graph validation (conceptual)
+A %TestResult% token
+
+
+The script injects dynamically generated evidence markdown into %TestResult%.
+
+Key design decision clarified
+
+TestDescription and TestResult are intentionally separate concepts:
+
+TestDescription = static narrative and remediation guidance
+TestResult = dynamic execution output / evidence
+
+
+Earlier behavior caused duplication because TestResult contained the entire rendered markdown document (description + evidence).
+This was identified as unnecessary duplication.
+
+Current / intended behavior (working as designed)
+
+The test now emits evidence-only markdown ($mdInfo) into TestResult.
+TestDescription remains the authoritative source for descriptive content.
+This:
+
+Avoids repetition
+Produces cleaner JSON output
+Aligns with how reports render description vs. results
+
+
+A PSScriptAnalyzer warning (resultMarkdown assigned but never used) was resolved by removing unused full‑document rendering logic.
+
+Formatting improvements applied
+
+Standardized markdown structure (headings, tables, evidence section).
+Ensured %TestResult% appears under a proper ## Evidence heading.
+Result output is readable, consistent, and report-ready.
+
+
+Next Planned Steps
+
+Re-test all newly created assessment tests:
+
+Validate markdown formatting
+Proof evidence rendering
+Ensure no duplication or malformed sections
+
+
+Apply custom branding to the main report:
+
+Visual styling
+Layout consistency
+Organization-specific branding elements
