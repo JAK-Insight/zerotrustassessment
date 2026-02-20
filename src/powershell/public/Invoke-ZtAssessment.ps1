@@ -175,6 +175,7 @@ function Invoke-ZtAssessment {
 		$services = @('Graph', 'Azure')
 
 		if ($Pillar -eq 'Data' -or ($Tests -contains '35047')) {
+			$services += 'ExchangeOnline'
 			$services += 'SecurityCompliance'
 			$services += 'SharePointOnline'
 		}

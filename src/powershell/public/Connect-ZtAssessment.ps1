@@ -285,6 +285,16 @@ function Connect-ZtAssessment {
 					}
 
 					if (-not $ExoUPN) {
+						try {
+							$mgCtx = Get-MgContext -ErrorAction SilentlyContinue
+							if ($mgCtx -and $mgCtx.Account) {
+								$ExoUPN = $mgCtx.Account
+								Write-Verbose "Resolved UPN for Security & Compliance from Graph context: $ExoUPN"
+							}
+						} catch { }
+					}
+
+					if (-not $ExoUPN) {
 						Write-Host "`nUnable to determine a UserPrincipalName for Security & Compliance. Please supply -UserPrincipalName or connect to Exchange Online first." -ForegroundColor Yellow
 						continue
 					}
@@ -328,13 +338,8 @@ function Connect-ZtAssessment {
 					}
 				}
 
-				# Fix for Get-Label visibility in other scopes
-				if (Get-Command Get-Label -ErrorAction SilentlyContinue) {
-					$module = Get-Command Get-Label | Select-Object -ExpandProperty Module
-					if ($module -and $module.Name -like 'tmp_*') {
-						Import-Module $module -Global -Force
-					}
-				}
+				# Make all implicit remoting modules from IPPS globally visible
+				Get-Module -Name 'tmp_*' | Import-Module -Global -Force -WarningAction SilentlyContinue
 			}
 		}
 
