@@ -310,7 +310,6 @@ export default function Dashboard() {
     </div>
 </div>
 
-                                {reportData.TestResultSummary.NetworkPassed !== undefined && (
                                 <div className="grid flex-1 auto-rows-min gap-0.5">
                                     <div className="text-sm text-muted-foreground">Network</div>
                                     <div className="flex items-baseline gap-1 text-xl font-bold tabular-nums leading-none">
@@ -320,7 +319,6 @@ export default function Dashboard() {
                                         </span>
                                     </div>
                                 </div>
-                                )}
                             </div>
                             <ChartContainer
                                 config={{
@@ -351,14 +349,13 @@ export default function Dashboard() {
                                         bottom: -10,
                                     }}
                                     data={[
-                                        // Only include Network pillar if it exists (preview mode)
-                                        ...(reportData.TestResultSummary.NetworkPassed !== undefined && reportData.TestResultSummary.NetworkTotal !== undefined
-                                            ? [{
-                                                activity: "network",
-                                                value: (reportData.TestResultSummary.NetworkPassed / reportData.TestResultSummary.NetworkTotal) * 100,
-                                                fill: "var(--color-network)",
-                                            }]
-                                            : []),
+                                        {
+                                            activity: "network",
+                                            value: reportData.TestResultSummary.NetworkTotal
+                                                ? (reportData.TestResultSummary.NetworkPassed / reportData.TestResultSummary.NetworkTotal) * 100
+                                                : 0,
+                                            fill: "var(--color-network)",
+                                        },
 {
     activity: "data",
     value: reportData.TestResultSummary.DataTotal

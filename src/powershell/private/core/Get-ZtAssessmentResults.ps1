@@ -49,11 +49,8 @@ function Get-TestResultSummary {
         DevicesTotal   = @($TestResults).Where{ $_.TestPillar -eq 'Devices' -and $_.TestStatus -notin 'Skipped', 'Planned' }.Count
         DataPassed     = @($TestResults).Where{ $_.TestPillar -eq 'Data' -and $_.TestStatus -eq 'Passed' }.Count
         DataTotal      = @($TestResults).Where{ $_.TestPillar -eq 'Data' -and $_.TestStatus -notin 'Skipped', 'Planned' }.Count
-    }
-
-    if($PreviewEnabled){
-        $summary | Add-Member -NotePropertyName 'NetworkPassed' -NotePropertyValue (@($TestResults).Where{ $_.TestPillar -eq 'Network' -and $_.TestStatus -eq 'Passed' }.Count)
-        $summary | Add-Member -NotePropertyName 'NetworkTotal' -NotePropertyValue (@($TestResults).Where{ $_.TestPillar -eq 'Network' -and $_.TestStatus -notin 'Skipped', 'Planned' }.Count)
+        NetworkPassed  = @($TestResults).Where{ $_.TestPillar -eq 'Network' -and $_.TestStatus -eq 'Passed' }.Count
+        NetworkTotal   = @($TestResults).Where{ $_.TestPillar -eq 'Network' -and $_.TestStatus -notin 'Skipped', 'Planned' }.Count
     }
 
     return $summary
