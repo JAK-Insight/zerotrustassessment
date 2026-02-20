@@ -1,4 +1,4 @@
-<#
+﻿<#
 .SYNOPSIS
  DLP policies are configured for Microsoft Teams
 #>
@@ -160,31 +160,18 @@ function Test-Assessment-35042 {
     $mdInfo = ($lines -join "`n")
     #endregion Evidence Markdown
 
-    #region Load MD and Inject Evidence
-    $resultMarkdown = $null
-
-    if (Test-Path $mdPath) {
-        $baseMd = Get-Content -Path $mdPath -Raw
-        if ($baseMd -match '%TestResult%') {
-            $resultMarkdown = $baseMd -replace '%TestResult%', $mdInfo
-        }
-        else {
-            $resultMarkdown = $baseMd + "`n`n<!--- Results (auto-appended; missing %TestResult% token) --->`n" + $mdInfo
-            $customStatus = 'Investigate'
-        }
-    }
-    else {
-        $resultMarkdown = "⚠️ Missing markdown file: $mdPath`n`n$mdInfo"
+    # Ensure the markdown description file exists (does not affect pass/fail)
+    if (-not (Test-Path $mdPath)) {
         $customStatus = 'Investigate'
+        Write-PSFMessage ("Missing markdown file: {0}" -f $mdPath) -Level Warning
     }
-    #endregion Load MD and Inject Evidence
 
     #region Output
     $params = @{
         TestId = "$testId"
         Title  = $title
         Status = $passed
-        Result = $resultMarkdown
+        Result = $mdInfo   # evidence block only; TestDescription carries the narrative
     }
     if ($null -ne $customStatus) { $params.CustomStatus = $customStatus }
 
