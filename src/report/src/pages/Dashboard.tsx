@@ -300,17 +300,16 @@ export default function Dashboard() {
                                         </span>
                                     </div>
                                 </div>
-                                {reportData.TestResultSummary.DataPassed !== undefined && (
                                 <div className="grid flex-1 auto-rows-min gap-0.5">
-                                    <div className="text-sm text-muted-foreground">Data</div>
-                                    <div className="flex items-baseline gap-1 text-xl font-bold tabular-nums leading-none">
-                                        {reportData.TestResultSummary.DataPassed}/{reportData.TestResultSummary.DataTotal}
-                                        <span className="text-sm font-normal text-muted-foreground">
-                                            tests
-                                        </span>
-                                    </div>
-                                </div>
-                                )}
+    <div className="text-sm text-muted-foreground">Data</div>
+    <div className="flex items-baseline gap-1 text-xl font-bold tabular-nums leading-none">
+        {reportData.TestResultSummary.DataPassed}/{reportData.TestResultSummary.DataTotal}
+        <span className="text-sm font-normal text-muted-foreground">
+            tests
+        </span>
+    </div>
+</div>
+
                                 {reportData.TestResultSummary.NetworkPassed !== undefined && (
                                 <div className="grid flex-1 auto-rows-min gap-0.5">
                                     <div className="text-sm text-muted-foreground">Network</div>
@@ -360,14 +359,14 @@ export default function Dashboard() {
                                                 fill: "var(--color-network)",
                                             }]
                                             : []),
-                                        // Only include Data pillar if it exists (preview mode)
-                                        ...(reportData.TestResultSummary.DataPassed !== undefined && reportData.TestResultSummary.DataTotal !== undefined
-                                            ? [{
-                                                activity: "data",
-                                                value: (reportData.TestResultSummary.DataPassed / reportData.TestResultSummary.DataTotal) * 100,
-                                                fill: "var(--color-stand)",
-                                            }]
-                                            : []),
+{
+    activity: "data",
+    value: reportData.TestResultSummary.DataTotal
+        ? (reportData.TestResultSummary.DataPassed / reportData.TestResultSummary.DataTotal) * 100
+        : 0,
+    fill: "var(--color-stand)",
+},
+
                                         {
                                             activity: "devices",
                                             value: (reportData.TestResultSummary.DevicesPassed / reportData.TestResultSummary.DevicesTotal) * 100,

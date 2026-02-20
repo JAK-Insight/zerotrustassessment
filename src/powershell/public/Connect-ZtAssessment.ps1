@@ -86,6 +86,9 @@ function Connect-ZtAssessment {
 		[ValidateSet('All', 'Azure', 'AipService', 'ExchangeOnline', 'Graph', 'SecurityCompliance', 'SharePointOnline')]
 		[string[]]$Service = 'Graph',
 
+		# Additional delegated Graph scopes to request (optional).
+		[string[]] $AdditionalGraphScopes,
+
 		# The Exchange environment to connect to. Default is O365Default. Supported values include O365China, O365Default, O365GermanyCloud, O365USGovDoD, O365USGovGCCHigh.
 		[ValidateSet('O365China', 'O365Default', 'O365GermanyCloud', 'O365USGovDoD', 'O365USGovGCCHigh')]
 		[string]$ExchangeEnvironmentName = 'O365Default',
@@ -110,7 +113,20 @@ function Connect-ZtAssessment {
 		$params.Certificate = $Certificate
 	}
 	else {
-		$params.Scopes = Get-ZtGraphScope
+		$scopes = @()
+		$scopes += @(Get-ZtGraphScope)
+
+		if ($AdditionalGraphScopes) {
+			$scopes += @($AdditionalGraphScopes)
+		}
+
+		# De-duplicate while preserving order
+		$params.Scopes = [System.Collections.Generic.List[string]]::new()
+		foreach ($s in $scopes) {
+			if (-not [string]::IsNullOrWhiteSpace($s) -and -not $params.Scopes.Contains($s)) {
+				$params.Scopes.Add($s)
+			}
+		}
 	}
 	if (-not $UseTokenCache) {
 		$params.ContextScope = 'Process'
@@ -269,6 +285,16 @@ function Connect-ZtAssessment {
 					}
 
 					if (-not $ExoUPN) {
+						try {
+							$mgCtx = Get-MgContext -ErrorAction SilentlyContinue
+							if ($mgCtx -and $mgCtx.Account) {
+								$ExoUPN = $mgCtx.Account
+								Write-Verbose "Resolved UPN for Security & Compliance from Graph context: $ExoUPN"
+							}
+						} catch { }
+					}
+
+					if (-not $ExoUPN) {
 						Write-Host "`nUnable to determine a UserPrincipalName for Security & Compliance. Please supply -UserPrincipalName or connect to Exchange Online first." -ForegroundColor Yellow
 						continue
 					}
@@ -312,13 +338,8 @@ function Connect-ZtAssessment {
 					}
 				}
 
-				# Fix for Get-Label visibility in other scopes
-				if (Get-Command Get-Label -ErrorAction SilentlyContinue) {
-					$module = Get-Command Get-Label | Select-Object -ExpandProperty Module
-					if ($module -and $module.Name -like 'tmp_*') {
-						Import-Module $module -Global -Force
-					}
-				}
+				# Make all implicit remoting modules from IPPS globally visible
+				Get-Module -Name 'tmp_*' | Import-Module -Global -Force -WarningAction SilentlyContinue
 			}
 		}
 

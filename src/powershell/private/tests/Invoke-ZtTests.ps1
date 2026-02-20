@@ -57,7 +57,7 @@
 	# Filter based on preview feature flag
 	if (-not $script:__ZtSession.PreviewEnabled) {
 		# Non-preview mode: Only include stable/released pillars
-		$stablePillars = @('Identity', 'Devices')
+		$stablePillars = @('Identity', 'Devices', 'Data')
 		$testsToRun = $testsToRun | Where-Object { $_.Pillar -in $stablePillars }
 	}
 
