@@ -8,7 +8,8 @@ At least one DLP policy should be actively enforcing on Microsoft Teams to provi
 To configure DLP policies for Microsoft Teams:
 
 **Option 1: Create a new DLP policy**
-1. Sign in as Global Administrator or Compliance Administrator to the [Microsoft Purview portal](https://e to DLP Policies
+1. Sign in as Global Administrator or Compliance Administrator to the [Microsoft Purview portal](https://purview.microsoft.com)
+2. Navigate to [DLP Policies](https://purview.microsoft.com/datalossprevention/policies)
 3. Select **Create policy**
 4. Choose a template (PII, financial, HIPAA, GDPR) or create a custom policy
 5. On the **Locations** page, toggle **Microsoft Teams chat and channel messages** to **On**
@@ -17,7 +18,7 @@ To configure DLP policies for Microsoft Teams:
 8. Promote at least one policy to **enforcement mode**
 
 **Option 2: Add Microsoft Teams to an existing DLP policy**
-1. Navigate to [DLPPolicies
+1. Navigate to [DLP Policies](https://purview.microsoft.com/datalossprevention/policies)
 2. Select an existing policy and click **Edit policy**
 3. On the **Locations** page, toggle **Microsoft Teams** to **On**
 4. Review and save the policy

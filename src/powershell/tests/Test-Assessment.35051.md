@@ -4,7 +4,7 @@ This check evaluates whether Insider Risk Management policies exist and whether 
 
 **Remediation action**
 1. Sign in to the Microsoft Purview portal
-2. Navigate to [nsider Risk Management > Policies
+2. Navigate to [Insider Risk Management > Policies](https://purview.microsoft.com/insiderriskmanagement/policies)
 3. Create one or more policies using recommended templates (e.g., departing user data theft, data leaks)
 4. Configure indicators, thresholds, and scopes (users/groups)
 5. Enable the policy and validate that alerts and investigations can be performed by the appropriate team

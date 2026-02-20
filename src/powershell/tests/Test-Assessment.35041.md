@@ -8,8 +8,10 @@ At least one DLP policy should be actively enforcing on SharePoint Online and/or
 To configure DLP policies for SharePoint Online and OneDrive:
 
 **Option 1: Create a new DLP policy from a template**
-1. Sign in as Global Administrator or Compliance Administrator to the [icrosoft Purview portal
-2. Navigate to [DLP Policies](https://purview.microsoft.com/datal a regulatory template (e.g., PII, financial, HIPAA, GDPR) or a custom policy
+1. Sign in as Global Administrator or Compliance Administrator to the [Microsoft Purview portal](https://purview.microsoft.com)
+2. Navigate to [DLP Policies](https://purview.microsoft.com/datalossprevention/policies)
+3. Select **Create policy**
+4. Choose a regulatory template (e.g., PII, financial, HIPAA, GDPR) or a custom policy
 5. On the **Locations** page, ensure **SharePoint sites** and/or **OneDrive accounts** are toggled **On**
 6. Configure rules with appropriate sensitive information types and thresholds
 7. Configure actions (restrict access, block sharing, notify user, send alert)
@@ -17,7 +19,8 @@ To configure DLP policies for SharePoint Online and OneDrive:
 9. Promote at least one policy to **enforcement mode**
 
 **Option 2: Add SharePoint/OneDrive to an existing DLP policy**
-1. Navigate to [DLP Policies](https://purviewting policy and click **Edit policy**
+1. Navigate to [DLP Policies](https://purview.microsoft.com/datalossprevention/policies)
+2. Select an existing policy and click **Edit policy**
 3. On the **Locations** page, toggle **SharePoint sites** and/or **OneDrive accounts** to **On**
 4. Review and save the policy
 

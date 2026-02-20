@@ -7,7 +7,9 @@ Policies running only in simulation mode provide visibility but do not prevent d
 **Remediation action**
 To configure Endpoint DLP policies:
 
-1. Sign in as Global Administrator or Compliance Administrator to the [Microsoft Purview portal](https://e to [DLP Policies](https://purew policy or edit an existing policy
+1. Sign in as Global Administrator or Compliance Administrator to the [Microsoft Purview portal](https://purview.microsoft.com)
+2. Navigate to [DLP Policies](https://purview.microsoft.com/datalossprevention/policies)
+3. Select **Create policy** or edit an existing policy
 4. On the **Locations** page, toggle **Devices (Endpoint DLP)** to **On**
 5. Configure rules using appropriate Sensitive Information Types (SITs) and thresholds
 6. Configure actions (block, audit, override with justification, notify user, alert)

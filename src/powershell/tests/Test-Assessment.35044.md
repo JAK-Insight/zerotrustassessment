@@ -3,7 +3,8 @@ DLP policies in enforcement mode actively prevent data loss by blocking or restr
 This check evaluates whether the tenant has at least one DLP policy actively enforcing (enabled) rather than only simulation/test policies. If no DLP policies are enforcing, sensitive information may be detected but not protected.
 
 **Remediation action**
-1. Sign in to the [Microsoft Purview portal2. Navigate to [DLPPolicies
+1. Sign in to the [Microsoft Purview portal](https://purview.microsoft.com)
+2. Navigate to [DLP Policies](https://purview.microsoft.com/datalossprevention/policies)
 3. Identify policies in simulation mode and review match reports in Activity Explorer
 4. Promote at least one appropriate policy to enforcement:
    - Change from **Run in simulation** to **Turn it on right away**

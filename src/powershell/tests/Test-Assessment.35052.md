@@ -3,7 +3,8 @@ Microsoft Purview alert policies help detect and notify responders about importa
 This check evaluates whether data-related alert policies exist and are enabled, and whether the organization has created custom alert policies to supplement built-in detections. Custom alert policies are recommended for tenant-specific risks and operational needs (e.g., mass downloads of sensitive data, external sharing of labeled content, unusual access patterns).
 
 **Remediation action**
-1. Sign in to the [Microsoft Purview portal](httpsgate to Alert policies
+1. Sign in to the [Microsoft Purview portal](https://purview.microsoft.com)
+2. Navigate to Alert policies
 3. Review built-in alert policies and ensure they are enabled where appropriate
 4. Create custom alert policies for organization-specific scenarios:
    - Mass file downloads
