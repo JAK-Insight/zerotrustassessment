@@ -4,6 +4,7 @@ import { cn } from "@/lib/utils";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { Icons } from "@/components/icons";
 import { ztAppConfig } from "@/config/app";
+import insightLogo from "@/assets/insight-logo.png";
 import { reportData } from "@/config/report-data";
 import { Button, buttonVariants } from "@/components/ui/button";
 import {
@@ -158,6 +159,7 @@ export function Header() {
                     </SheetContent>
                 </Sheet>
                 <a href="/" className="mr-6 flex items-center space-x-2 md:hidden">
+                    <img src={insightLogo} alt="Insight" className="h-6 w-auto mr-2" />
                     <Icons.logo className="h-6 w-6" />
                     <span className="font-bold inline-block">{ztAppConfig.name}</span>
                 </a>
