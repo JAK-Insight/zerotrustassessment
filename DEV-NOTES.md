@@ -1,16 +1,16 @@
 # DEV-NOTES — Zero Trust Assessment Tool (Data Pillar Extension)
 
 > **Owner:** Joshua Kaye (Security Consultant Sr, Insight)
-> 
-> **Repo:** `C:\Epic\MS-ztassessment\zerotrustassessment`  
-> **Fork:** https://github.com/JAK-Insight/zerotrustassessment  
+>
+> **Repo:** `C:\Epic\MS-ztassessment\zerotrustassessment`
+> **Fork:** https://github.com/JAK-Insight/zerotrustassessment
 > **Branch:** `feature/data-pillar`
 
 ---
 
 ## 1) Project Goal
 
-Extend Microsoft’s Zero Trust Assessment tool to include additional pillars—**Data (first)**, then **Applications, Infrastructure, Network**—by adding tests and enabling those pillars in the report UI.
+Extend Microsoft's Zero Trust Assessment tool to include additional pillars—**Data (first)**, then **Applications, Infrastructure, Network**—by adding tests and enabling those pillars in the report UI.
 
 ---
 
@@ -27,32 +27,74 @@ Extend Microsoft’s Zero Trust Assessment tool to include additional pillars—
 
 ## 3) Completed Work Summary
 
-### 3.1 Data Pillar: new tests added (35040–35052)
+### 3.1 Data Pillar: 13 new tests added (35040–35052) ✅
 
-Added 13 new Data pillar tests:
+| ID | Test |
+|----|------|
+| 35040 | DLP policies for Exchange Online |
+| 35041 | DLP policies for SharePoint/OneDrive |
+| 35042 | DLP policies for Microsoft Teams |
+| 35043 | Endpoint DLP enabled |
+| 35044 | DLP policies in enforcement mode |
+| 35045 | DLP alerts configured and routed |
+| 35046 | TLS enforcement for Exchange Online |
+| 35047 | SharePoint external sharing restricted |
+| 35048 | Retention policies configured |
+| 35049 | Data access reviews configured (Graph identity governance) |
+| 35050 | Audit log retention extended |
+| 35051 | Insider Risk Management policies |
+| 35052 | Purview alert policies for data events |
 
-- **35040:** DLP policies for Exchange Online
-- **35041:** DLP policies for SharePoint/OneDrive
-- **35042:** DLP policies for Microsoft Teams
-- **35043:** Endpoint DLP enabled
-- **35044:** DLP policies in enforcement mode
-- **35045:** DLP alerts configured and routed
-- **35046:** TLS enforcement for Exchange Online
-- **35047:** SharePoint external sharing restricted
-- **35048:** Retention policies configured
-- **35049:** Data access reviews configured (Graph identity governance)
-- **35050:** Audit log retention extended
-- **35051:** Insider Risk Management policies
-- **35052:** Purview alert policies for data events
+Each test has a matching `.md` template in the same folder (`Test-Assessment.<ID>.md`) with the `%TestResult%` injection token.
 
-### 3.2 Data Pillar: enabled in report UI
+### 3.2 Evidence-only result pattern applied to all tests ✅
+
+All 13 tests emit evidence-only markdown into `TestResult`. `TestDescription` remains the authoritative source for static narrative and remediation guidance. This avoids duplication in report output and aligns with how the report renders description vs. results. (Committed: `be5a058f`)
+
+### 3.3 Test 35040 parse error fixed ✅
+
+The truncated URL in `Test-Assessment.35040.ps1` that caused cascading parse failures was corrected:
+
+```powershell
+$lines.Add("### [DLP Policies covering Exchange Online](https://purview.microsoft.com/datalossprevention/policies)")
+```
+
+(Committed: `b0316e19`)
+
+### 3.4 Data pillar enabled in report UI ✅
 
 - PowerShell results logic updated so Data totals are not gated behind Preview-only logic.
 - Report UI updated to always show the Data tab and include Data in overview charts.
 
-### 3.3 Data Pillar: added to “stable pillars”
+### 3.5 Data added to stable pillars ✅
 
-Changed stable pillars list to include `Data` (so it appears as stable in orchestration logic).
+`Data` added to the stable pillars list so it appears as stable in orchestration logic.
+
+### 3.6 Opt-in `-Connect` auto-connect added to `Invoke-ZtAssessment` ✅
+
+```powershell
+Invoke-ZtAssessment ... -Connect
+```
+
+When `-Connect` is set, `Invoke-ZtAssessment` auto-calls `Connect-ZtAssessment` with services derived from the selected pillar/tests. For the Data pillar, this includes:
+- `ExchangeOnline`
+- `SecurityCompliance` (IPPS)
+- `SharePointOnline`
+
+Optional parameters added for reliability: `-UserPrincipalName`, `-SharePointAdminUrl`.
+
+IPPS and EXO connectivity improved for multi-service scenarios. (Committed: `ecb1609d`)
+
+### 3.7 Insight branding added to report UI ✅
+
+Insight logo added to the report header alongside the Microsoft ZT logo.
+
+- **Report logo asset:** `src/report/src/assets/insight-logo.png`
+- **Docs site logo asset:** `src/react/static/img/logo.png` *(untracked — see Next Steps)*
+- **Header component:** `src/report/src/components/layouts/Header.tsx`
+- **Logo component:** `src/report/src/components/logo.tsx`
+
+(Committed: `32e802cf`, `a2e03446`)
 
 ---
 
@@ -60,7 +102,7 @@ Changed stable pillars list to include `Data` (so it appears as stable in orches
 
 ### 4.1 Goal
 
-For each new test (35040–35052), standardize to:
+For each test (35040–35052), standardize to:
 
 1. A **matching markdown file** in the **same folder** as the test:
    - `src/powershell/tests/Test-Assessment.<ID>.md`
@@ -81,67 +123,37 @@ For each new test (35040–35052), standardize to:
 ### 4.2 Implementation Tips
 
 - Prefer **line-array markdown generation** (avoid fragile multiline string escaping).
-- Avoid backslash line continuations and here-strings unless you’re careful with terminators.
-- Add **cmdlet existence checks** (e.g., `Get-Command Get-SPOTenant`) and improve `Investigate` messages.
+- Avoid backslash line continuations and here-strings unless you're careful with terminators.
+- Add **cmdlet existence checks** (e.g., `Get-Command Get-SPOTenant`) and meaningful `Investigate` messages.
 - Save scripts as **UTF-8** to keep emoji/icons stable.
+- `TestDescription` = static narrative and remediation guidance (from `.md` template).
+- `TestResult` = dynamic evidence only — do not re-emit the full description.
 
 ---
 
-## 5) “Best UX” Enhancement — Opt-in Auto-Connect
+## 5) Known Issues / Remaining Investigate Scenarios
 
-### 5.1 Problem
+### 5.1 Test 35047 — SharePoint External Sharing
 
-Some tests require service-specific sessions (EXO, Security & Compliance/IPPS, SharePointOnline). If a user only follows the default “Connect then Invoke” flow, Data tests like **35047** may return `Investigate` due to missing SharePoint Online connection.
+**Symptom:** May return `Investigate` when SharePoint Online session isn't fully established.
 
-### 5.2 Decision
+**Cause:** `Connect-ZtAssessment` needs to infer the SPO admin URL correctly (or receive it explicitly via `-SharePointAdminUrl`).
 
-Add an **opt-in** switch to `Invoke-ZtAssessment`:
+**Workaround:** Pass `-SharePointAdminUrl https://<tenant>-admin.sharepoint.com` when invoking.
 
-- `Invoke-ZtAssessment ... -Connect`
+### 5.2 Test 35049 — Data Access Reviews
 
-When `-Connect` is set, `Invoke-ZtAssessment` calls `Connect-ZtAssessment` with a service set based on pillar/tests (e.g., Data connects Graph/Azure + SecurityCompliance + SharePointOnline).
+**Symptom:** May return `Investigate` due to missing Graph Identity Governance permissions.
 
-### 5.3 Status
+**Cause:** Access reviews require elevated Graph scopes (`AccessReview.Read.All` or `AccessReview.ReadWrite.All`) that may not be granted in all tenants.
 
-- `Invoke-ZtAssessment` was edited to add `-Connect` (opt-in).
-- Module reload confirmed the new parameter appears.
-
----
-
-## 6) Known Issue (Active): Test 35040 Parse Failure
-
-### Symptom
-
-Module import or test parsing fails with PowerShell parse errors.
-
-### Root Cause
-
-In `Test-Assessment.35040.ps1`, a markdown header line was truncated mid-URL, causing an unterminated string and cascading parse errors.
-
-### Correct URL
-
-Use:
-
-```text
-https://purview.microsoft.com/datalossprevention/policies
-```
-
-### Fix Pattern
-
-Ensure the line is complete and not merged with the next statement:
-
-```powershell
-$lines.Add("### [DLP Policies covering Exchange Online](https://purview.microsoft.com/datalossprevention/policies)")
-$lines.Add("")
-```
-
-Then validate syntax with the parser check (below).
+**Note:** The PowerShell logic (typed Graph SDK with REST fallback, recurring review detection, instance sampling) is correct and validated.
 
 ---
 
-## 7) Useful Commands (Copy/Paste)
+## 6) Useful Commands (Copy/Paste)
 
-### 7.1 Reload local module (dev workflow)
+### 6.1 Reload local module (dev workflow)
 
 ```powershell
 cd C:\Epic\MS-ztassessment\zerotrustassessment
@@ -149,13 +161,13 @@ Remove-Module ZeroTrustAssessment -Force -ErrorAction SilentlyContinue
 Import-Module .\src\powershell\ZeroTrustAssessment.psd1 -Force
 ```
 
-### 7.2 Confirm `-Connect` exists
+### 6.2 Confirm `-Connect` parameter exists
 
 ```powershell
 (Get-Command Invoke-ZtAssessment).Parameters.Keys | Sort-Object
 ```
 
-### 7.3 Parse-check a single test file
+### 6.3 Parse-check a single test file
 
 ```powershell
 $path = "C:\Epic\MS-ztassessment\zerotrustassessment\src\powershell\tests\Test-Assessment.35040.ps1"
@@ -165,7 +177,7 @@ $errors = $null
 $errors | Format-List
 ```
 
-### 7.4 Parse-check all test files (find syntax breakers)
+### 6.4 Parse-check all test files (find syntax breakers)
 
 ```powershell
 $root = "C:\Epic\MS-ztassessment\zerotrustassessment\src\powershell\tests"
@@ -189,108 +201,49 @@ $allErrors = foreach ($f in $files) {
 $allErrors | Sort-Object File, Line, Column | Format-Table -AutoSize
 ```
 
-### 7.5 Run Data pillar end-to-end (after fixes)
+### 6.5 Run Data pillar end-to-end
 
 ```powershell
+# Full run
 Invoke-ZtAssessment -Preview -Pillar Data -Connect -ShowLog -Verbose
+
+# Single-test fast validation
+Invoke-ZtAssessment -Preview -Pillar Data -Tests 35040 -Connect -ShowLog -Verbose
 ```
 
 ---
 
-## 8) Next Steps Checklist
+## 7) Next Steps Checklist
 
-1. **Fix 35040 syntax** (ensure URL line is complete; no merged `$lines.Add(...)` lines).
-2. Re-run **Parse-check all test files** (must return 0 errors).
-3. Reload module.
-4. Run a **fast validation** (optional): `Invoke-ZtAssessment -Preview -Pillar Data -Tests 35040 -Connect -ShowLog -Verbose`
-5. Full validation run: `Invoke-ZtAssessment -Preview -Pillar Data -Connect -ShowLog -Verbose`
-6. After validation, consider improving “just works” connections for remaining `Investigate` scenarios:
-   - Ensure SharePointOnline connect success for 35047 (admin URL inference vs explicit parameter)
-   - Address Graph permissions for 35049 (Identity Governance access reviews)
+- [ ] **Commit `src/react/static/img/logo.png`** — docs site logo is untracked and will be lost.
+- [ ] **Run parse-check** across all 35040–35052 test files — must return 0 errors.
+- [ ] **Reload module and run end-to-end validation:**
+  ```powershell
+  Invoke-ZtAssessment -Preview -Pillar Data -Connect -ShowLog -Verbose
+  ```
+- [ ] **Investigate 35047 SPO connection** — test with explicit `-SharePointAdminUrl` to confirm pass/fail accuracy.
+- [ ] **Investigate 35049 Graph permissions** — document minimum required scopes; consider graceful degradation message.
+- [ ] **Open PR** `feature/data-pillar` → `main` when validation passes.
 
 ---
 
-## 9) Session Resume Prompt (for new chat)
-
-If you need to restart a Copilot/Chat session, paste this summary:
+## 8) Session Resume Prompt (for new chat)
 
 ```text
-I’m Joshua Kaye (Security Consultant Sr, Insight) extending Microsoft Zero Trust Assessment.
+I'm Joshua Kaye (Security Consultant Sr, Insight) extending Microsoft Zero Trust Assessment.
 Fork: https://github.com/JAK-Insight/zerotrustassessment | Branch: feature/data-pillar | Local: C:\Epic\MS-ztassessment\zerotrustassessment
-Added 13 Data tests 35040–35052 and enabled Data pillar in report UI and stable pillars.
-Standardizing all tests to use matching MD templates in src\powershell\tests with %TestResult% injection.
-Added opt-in -Connect to Invoke-ZtAssessment to auto-call Connect-ZtAssessment with required services (Data uses SecurityCompliance + SharePointOnline).
-Current blocker: Test-Assessment.35040.ps1 parse error due to truncated URL; correct is https://purview.microsoft.com/datalossprevention/policies. Fix 35040, parse-check all tests, reload module, then run: Invoke-ZtAssessment -Preview -Pillar Data -Connect -ShowLog -Verbose.
+
+COMPLETED:
+- 13 Data pillar tests added (35040–35052), all with matching .md templates using %TestResult% injection
+- All tests standardized to evidence-only result pattern (TestResult = evidence only; TestDescription = static narrative)
+- Test 35040 URL parse error fixed (commit b0316e19)
+- Data pillar enabled in report UI and added to stable pillars
+- Opt-in -Connect switch added to Invoke-ZtAssessment; auto-connects EXO, IPPS (SecurityCompliance), and SharePointOnline for Data pillar
+- Insight logo branding added to report header (Header.tsx, logo.tsx) — commits 32e802cf and a2e03446
+
+PENDING:
+- src/react/static/img/logo.png is untracked and needs to be committed
+- Run parse-check on all 35040–35052 test files, then: Invoke-ZtAssessment -Preview -Pillar Data -Connect -ShowLog -Verbose
+- Remaining Investigate scenarios: 35047 (SPO admin URL), 35049 (Graph Identity Governance scopes)
+- Open PR to main when validation passes
 ```
-Context Summary – Zero Trust Assessment Test Formatting & Reporting
-We’ve been working on Microsoft Zero Trust assessment PowerShell tests, specifically Test‑Assessment‑35049 (“Data access reviews are configured for sensitive resources”), focusing on correctness, formatting, and report output structure rather than Graph logic.
-What’s been validated
-
-The PowerShell test logic is correct:
-
-Typed-first Microsoft Graph SDK usage with REST fallback
-Correct detection of recurring access reviews
-Optional sampling of access review instances
-Proper pass/fail evaluation
-
-
-The test executes successfully and produces accurate evidence.
-Graph permissions and module behavior are functioning as intended.
-
-Markdown (.md) handling
-
-Each test has a companion markdown file (Test-Assessment.<id>.md) containing:
-
-Description
-Remediation steps
-Graph validation (conceptual)
-A %TestResult% token
-
-
-The script injects dynamically generated evidence markdown into %TestResult%.
-
-Key design decision clarified
-
-TestDescription and TestResult are intentionally separate concepts:
-
-TestDescription = static narrative and remediation guidance
-TestResult = dynamic execution output / evidence
-
-
-Earlier behavior caused duplication because TestResult contained the entire rendered markdown document (description + evidence).
-This was identified as unnecessary duplication.
-
-Current / intended behavior (working as designed)
-
-The test now emits evidence-only markdown ($mdInfo) into TestResult.
-TestDescription remains the authoritative source for descriptive content.
-This:
-
-Avoids repetition
-Produces cleaner JSON output
-Aligns with how reports render description vs. results
-
-
-A PSScriptAnalyzer warning (resultMarkdown assigned but never used) was resolved by removing unused full‑document rendering logic.
-
-Formatting improvements applied
-
-Standardized markdown structure (headings, tables, evidence section).
-Ensured %TestResult% appears under a proper ## Evidence heading.
-Result output is readable, consistent, and report-ready.
-
-
-Next Planned Steps
-
-Re-test all newly created assessment tests:
-
-Validate markdown formatting
-Proof evidence rendering
-Ensure no duplication or malformed sections
-
-
-Apply custom branding to the main report:
-
-Visual styling
-Layout consistency
-Organization-specific branding elements

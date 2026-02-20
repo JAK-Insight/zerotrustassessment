@@ -1,4 +1,4 @@
-<#
+﻿<#
 .SYNOPSIS
  Data access reviews are configured for sensitive resources
 #>
@@ -111,7 +111,7 @@ function Test-Assessment-35049 {
         $Shorten = {
             param([string]$s, [int]$max = 120)
             if (-not $s) { return $null }
-            if ($s.Length -gt $max) { return ($s.Substring(0, $max) + "…") }
+            if ($s.Length -gt $max) { return ($s.Substring(0, $max) + "...") }
             return $s
         }
 
@@ -137,7 +137,7 @@ function Test-Assessment-35049 {
             }
 
             if ($q -match '/identityGovernance/entitlementManagement/accessPackageAssignments') {
-                return ("Entitlement review: Access package assignments – {0}" -f (& $Shorten $q 120))
+                return ("Entitlement review: Access package assignments - {0}" -f (& $Shorten $q 120))
             }
 
             if ($q -match "userType eq 'Guest'") {
@@ -386,10 +386,6 @@ function Test-Assessment-35049 {
         Status  = $passed
         Result  = $mdInfo   # evidence block only
     }
-
-    if ($null -ne $customStatus) { $params.CustomStatus = $customStatus }
-
-    Add-ZtTestResultDetail @params
 
     if ($null -ne $customStatus) { $params.CustomStatus = $customStatus }
 
