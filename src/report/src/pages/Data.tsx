@@ -18,7 +18,7 @@ export default function Data() {
                     </CardDescription>
                 </CardHeader>
                 <CardContent className="gap-4 px-4 pb-4 pt-1">
-                    <DataTable columns={columns} data={reportData.Tests} pillar="Data" />
+                    <DataTable columns={columns} data={reportData.Tests} pillar="Data" categories={["Data"]} />
                 </CardContent>
             </Card>
         </>

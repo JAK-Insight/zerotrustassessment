@@ -137,7 +137,7 @@ function Invoke-ZtAssessment {
 		$ConfigurationFile,
 
 		# The Zero Trust pillar to assess. Defaults to All.
-		[ValidateSet('All', 'Identity', 'Devices', 'Network', 'Data')]
+		[ValidateSet('All', 'Identity', 'Devices', 'Network', 'Data', 'Infrastructure')]
 		[string]
 		$Pillar = 'All',
 
@@ -219,21 +219,6 @@ function Invoke-ZtAssessment {
 
 	#region Preparation
 	Show-ZtiBanner
-
-	# Validate preview pillar requirements
-	if ($Pillar -in ('Network', 'Data') -and -not $Preview) {
-		Write-Host
-		Write-Host "❌ " -NoNewline -ForegroundColor Red
-		Write-Host "The '$Pillar' pillar is currently in preview and requires the " -NoNewline -ForegroundColor Red
-		Write-Host "-Preview" -NoNewline -ForegroundColor Yellow
-		Write-Host " switch." -ForegroundColor Red
-		Write-Host
-		Write-Host "Please run the command again with the " -NoNewline -ForegroundColor White
-		Write-Host "-Preview" -NoNewline -ForegroundColor Yellow
-		Write-Host " parameter to assess the $Pillar pillar." -ForegroundColor White
-		Write-Host
-		return
-	}
 
 	# Handle configuration file parameter
 	if ($ConfigurationFile) {

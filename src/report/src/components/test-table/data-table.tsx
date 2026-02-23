@@ -38,6 +38,7 @@ interface DataTableProps<TData extends Test, TValue> {
     columns: ColumnDef<TData, TValue>[]
     data: TData[]
     pillar?: string
+    categories?: string[]
 }
 
 import {
@@ -54,6 +55,7 @@ export function DataTable<TData extends Test, TValue>({
     columns,
     data,
     pillar,
+    categories,
 }: DataTableProps<TData, TValue>) {
     const [sorting, setSorting] = React.useState<SortingState>(
         pillar === "Devices"
@@ -87,15 +89,30 @@ export function DataTable<TData extends Test, TValue>({
     })
     const [rowSelection, setRowSelection] = React.useState({})
 
-    // First filter by pillar if specified (for unique value calculations)
+    // First filter by pillar or categories if specified (for unique value calculations).
+    // When both are provided, show tests matching pillar OR matching a cross-listed category (union).
     const pillarFilteredData = React.useMemo(() => {
-        if (pillar) {
+        const hasCategories = categories && categories.length > 0;
+        if (pillar && hasCategories) {
             return data.filter(item =>
-                item.TestPillar === pillar
+                item.TestPillar === pillar ||
+                (item.TestCategory !== null &&
+                 item.TestCategory !== undefined &&
+                 categories!.includes(item.TestCategory))
+            );
+        }
+        if (pillar) {
+            return data.filter(item => item.TestPillar === pillar);
+        }
+        if (hasCategories) {
+            return data.filter(item =>
+                item.TestCategory !== null &&
+                item.TestCategory !== undefined &&
+                categories!.includes(item.TestCategory)
             );
         }
         return data;
-    }, [data, pillar]);
+    }, [data, pillar, categories]);
 
     // Filter the data by pillar, selected SFI pillars, risks, and statuses if any are selected
     const filteredData = React.useMemo(() => {

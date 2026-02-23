@@ -28,33 +28,44 @@ const allMenuItems: NavItemWithChildren[] = [
         title: 'Devices',
         to: 'devices',
     },
-    // {
-    //     title: 'Apps',
-    //     to: 'apps',
-    // },
+    {
+        title: 'Apps',
+        to: 'apps',
+    },
     {
         title: 'Network',
         to: 'network',
     },
-    // {
-    //     title: 'Infrastructure',
-    //     to: 'infrastructure',
-    // },
+    {
+        title: 'Infrastructure',
+        to: 'infrastructure',
+    },
     {
         title: 'Data',
         to: 'data',
     },
+    {
+        title: 'List All',
+        to: 'list-all',
+    },
 ]
 
-// Filter menu based on available data (e.g., exclude Network/Data if their totals don't exist)
+// Filter menu based on available data (e.g., exclude Network/Data/Infrastructure if their totals don't exist)
 export const mainMenu: NavItemWithChildren[] = allMenuItems.filter(item => {
+    if (item.title === 'Apps') {
+        return reportData.Tests?.some(t =>
+            t.TestCategory === 'Application management' ||
+            t.TestCategory === 'Applications management'
+        ) ?? false
+    }
     if (item.title === 'Network') {
-        // Only show Network tab if NetworkTotal exists in the report data
         return reportData.TestResultSummary?.NetworkTotal !== undefined
     }
     if (item.title === 'Data') {
-        // Only show Data tab if DataTotal exists in the report data
         return reportData.TestResultSummary?.DataTotal !== undefined
+    }
+    if (item.title === 'Infrastructure') {
+        return reportData.TestResultSummary?.InfrastructureTotal !== undefined
     }
     return true
 })

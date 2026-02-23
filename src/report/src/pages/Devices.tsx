@@ -43,7 +43,7 @@ export default function Devices() {
                             </CardDescription>
                         </CardHeader>
                         <CardContent className="gap-4 px-4 pb-4 pt-1">
-                            <DataTable columns={columns} data={reportData.Tests} pillar="Devices" />
+                            <DataTable columns={columns} data={reportData.Tests} pillar="Devices" categories={["Devices"]} />
                         </CardContent>
                     </Card>
                 </TabsContent>

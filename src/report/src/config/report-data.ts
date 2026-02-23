@@ -119,6 +119,8 @@ export interface TestResultSummaryData {
   DataTotal?: number;
   NetworkPassed?: number;
   NetworkTotal?: number;
+  InfrastructurePassed?: number;
+  InfrastructureTotal?: number;
 }
 export interface SankeyData {
   nodes: SankeyDataNode[];
@@ -244,7 +246,11 @@ export const reportData: ZeroTrustAssessmentReport = {
     "DevicesPassed": 1,
     "DevicesTotal": 1,
     "DataPassed": 0,
-    "DataTotal": 0
+    "DataTotal": 0,
+    "NetworkPassed": 6,
+    "NetworkTotal": 31,
+    "InfrastructurePassed": 1,
+    "InfrastructureTotal": 5
   },
   "Tests": [
     {
@@ -971,5 +977,5 @@ export const reportData: ZeroTrustAssessmentReport = {
       "ManagedDeviceCount": 0
     }
   },
-  "EndOfJson": "EndOfJson"
+  "EndOfJson": "EndOfJson|EndJson|"
 }
