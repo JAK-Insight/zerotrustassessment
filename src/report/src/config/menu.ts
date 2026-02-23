@@ -28,10 +28,10 @@ const allMenuItems: NavItemWithChildren[] = [
         title: 'Devices',
         to: 'devices',
     },
-    // {
-    //     title: 'Apps',
-    //     to: 'apps',
-    // },
+    {
+        title: 'Apps',
+        to: 'apps',
+    },
     {
         title: 'Network',
         to: 'network',
@@ -44,10 +44,20 @@ const allMenuItems: NavItemWithChildren[] = [
         title: 'Data',
         to: 'data',
     },
+    {
+        title: 'List All',
+        to: 'list-all',
+    },
 ]
 
 // Filter menu based on available data (e.g., exclude Network/Data/Infrastructure if their totals don't exist)
 export const mainMenu: NavItemWithChildren[] = allMenuItems.filter(item => {
+    if (item.title === 'Apps') {
+        return reportData.Tests?.some(t =>
+            t.TestCategory === 'Application management' ||
+            t.TestCategory === 'Applications management'
+        ) ?? false
+    }
     if (item.title === 'Network') {
         return reportData.TestResultSummary?.NetworkTotal !== undefined
     }
