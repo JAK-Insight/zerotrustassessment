@@ -32,7 +32,7 @@ function Get-HtmlReport {
 
     # Insert the test results json into the template
     $startMarker = 'reportData={'
-    $endMarker = 'EndOfJson:"EndOfJson"}'
+    $endMarker = 'EndOfJson:"EndOfJson|EndJson|"}'
     $insertLocationStart = $templateHtml.IndexOf($startMarker)
     $insertLocationEnd = $templateHtml.IndexOf($endMarker) + $endMarker.Length
 

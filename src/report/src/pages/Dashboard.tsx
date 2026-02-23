@@ -319,6 +319,15 @@ export default function Dashboard() {
                                         </span>
                                     </div>
                                 </div>
+                                <div className="grid flex-1 auto-rows-min gap-0.5">
+                                    <div className="text-sm text-muted-foreground">Infrastructure</div>
+                                    <div className="flex items-baseline gap-1 text-xl font-bold tabular-nums leading-none">
+                                        {reportData.TestResultSummary.InfrastructurePassed}/{reportData.TestResultSummary.InfrastructureTotal}
+                                        <span className="text-sm font-normal text-muted-foreground">
+                                            tests
+                                        </span>
+                                    </div>
+                                </div>
                             </div>
                             <ChartContainer
                                 config={{
@@ -338,6 +347,10 @@ export default function Dashboard() {
                                         label: "Network",
                                         color: "hsl(var(--chart-4))",
                                     },
+                                    infrastructure: {
+                                        label: "Infrastructure",
+                                        color: "hsl(var(--chart-5))",
+                                    },
                                 }}
                                 className="mx-auto aspect-square w-full max-w-[80%]"
                             >
@@ -350,16 +363,23 @@ export default function Dashboard() {
                                     }}
                                     data={[
                                         {
+                                            activity: "infrastructure",
+                                            value: reportData.TestResultSummary.InfrastructureTotal
+                                                ? ((reportData.TestResultSummary.InfrastructurePassed ?? 0) / reportData.TestResultSummary.InfrastructureTotal) * 100
+                                                : 0,
+                                            fill: "var(--color-infrastructure)",
+                                        },
+                                        {
                                             activity: "network",
                                             value: reportData.TestResultSummary.NetworkTotal
-                                                ? (reportData.TestResultSummary.NetworkPassed / reportData.TestResultSummary.NetworkTotal) * 100
+                                                ? ((reportData.TestResultSummary.NetworkPassed ?? 0) / reportData.TestResultSummary.NetworkTotal) * 100
                                                 : 0,
                                             fill: "var(--color-network)",
                                         },
 {
     activity: "data",
     value: reportData.TestResultSummary.DataTotal
-        ? (reportData.TestResultSummary.DataPassed / reportData.TestResultSummary.DataTotal) * 100
+        ? ((reportData.TestResultSummary.DataPassed ?? 0) / reportData.TestResultSummary.DataTotal) * 100
         : 0,
     fill: "var(--color-stand)",
 },
