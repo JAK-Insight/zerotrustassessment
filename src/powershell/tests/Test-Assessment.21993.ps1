@@ -27,29 +27,42 @@ function Test-Assessment-21993 {
 
     Write-ZtProgress -Activity $activity -Status 'Getting agent identities'
 
-    $passed         = $false
-    $customStatus   = $null
-    $errorMsg       = $null
+    $passed          = $false
+    $customStatus    = $null
+    $errorMsg        = $null
+    $isFrontierError = $false
     $agentIdentities = @()
 
     try {
-        $agentIdentities = @(Invoke-ZtGraphRequest -RelativeUri 'agentIdentities' -ApiVersion beta -ErrorAction Stop)
+        $agentIdentities = @(Invoke-ZtGraphRequest -RelativeUri 'agents' -ApiVersion beta -ErrorAction Stop)
     }
     catch {
-        $errorMsg     = $_.Exception.Message
         $customStatus = 'Investigate'
+        if ($_.Exception.Message -match 'Frontier') {
+            $isFrontierError = $true
+        }
+        $errorMsg = $_.Exception.Message
     }
 
     $lines = New-Object System.Collections.Generic.List[string]
 
     if ($errorMsg) {
-        $lines.Add('Unable to retrieve AI agent identities from Microsoft Entra.')
-        $lines.Add('')
-        $lines.Add(("**Details:** {0}" -f $errorMsg))
-        $lines.Add('')
-        $lines.Add('Ensure the assessment account has the **AgentIdentity.Read.All** permission (currently in preview).')
-        $lines.Add('')
-        $lines.Add('If your organization does not yet use Microsoft Entra Agent ID, no action is required.')
+        if ($isFrontierError) {
+            $lines.Add('The Graph API for agent identities (`/beta/agents`) requires Microsoft to enable Frontier API access for this tenant.')
+            $lines.Add('')
+            $lines.Add('Your tenant has Entra Agent ID enabled (visible in the [Entra Admin Center](https://entra.microsoft.com/#view/Microsoft_AAD_IAM/AgentIdMenuBlade)), but the public Graph API is behind a separate feature gate that Microsoft must enable independently.')
+            $lines.Add('')
+            $lines.Add('Contact your Microsoft account team or open a support ticket to request Frontier API enrollment for Graph API access to agent identities.')
+        }
+        else {
+            $lines.Add('Unable to retrieve AI agent identities from Microsoft Entra.')
+            $lines.Add('')
+            $lines.Add(("**Details:** {0}" -f $errorMsg))
+            $lines.Add('')
+            $lines.Add('Ensure the assessment account has the **AgentIdentity.Read.All** permission (currently in preview).')
+            $lines.Add('')
+            $lines.Add('If your organization does not yet use Microsoft Entra Agent ID, no action is required.')
+        }
     }
     elseif ($agentIdentities.Count -eq 0) {
         $customStatus = 'Investigate'
@@ -71,7 +84,7 @@ function Test-Assessment-21993 {
             $sponsors  = @()
 
             try {
-                $sponsors = @(Invoke-ZtGraphRequest -RelativeUri "agentIdentities/$($agent.id)/sponsors" -ApiVersion beta -ErrorAction Stop)
+                $sponsors = @(Invoke-ZtGraphRequest -RelativeUri "agents/$($agent.id)/sponsors" -ApiVersion beta -ErrorAction Stop)
             }
             catch {
                 Write-PSFMessage ("Failed to get sponsors for agent {0}: {1}" -f $agentName, $_.Exception.Message) -Level Warning
