@@ -137,7 +137,7 @@ function Invoke-ZtAssessment {
 		$ConfigurationFile,
 
 		# The Zero Trust pillar to assess. Defaults to All.
-		[ValidateSet('All', 'Identity', 'Devices', 'Network', 'Data', 'Infrastructure')]
+		[ValidateSet('All', 'Identity', 'Devices', 'Network', 'Data', 'Infrastructure', 'PowerPlatform')]
 		[string]
 		$Pillar = 'All',
 

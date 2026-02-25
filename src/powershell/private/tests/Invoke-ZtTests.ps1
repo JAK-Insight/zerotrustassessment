@@ -33,7 +33,7 @@
 		[string[]]
 		$Tests,
 
-		[ValidateSet('All', 'Identity', 'Devices', 'Network', 'Data', 'Infrastructure')]
+		[ValidateSet('All', 'Identity', 'Devices', 'Network', 'Data', 'Infrastructure', 'PowerPlatform')]
 		[string]
 		$Pillar = 'All',
 
@@ -57,7 +57,7 @@
 	# Filter based on preview feature flag
 	if (-not $script:__ZtSession.PreviewEnabled) {
 		# Non-preview mode: Only include stable/released pillars
-		$stablePillars = @('Identity', 'Devices', 'Data', 'Network', 'Infrastructure')
+		$stablePillars = @('Identity', 'Devices', 'Data', 'Network', 'Infrastructure', 'PowerPlatform')
 		$testsToRun = $testsToRun | Where-Object { $_.Pillar -in $stablePillars }
 	}
 
