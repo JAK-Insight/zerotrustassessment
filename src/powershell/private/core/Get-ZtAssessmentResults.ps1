@@ -53,6 +53,8 @@ function Get-TestResultSummary {
         NetworkTotal         = @($TestResults).Where{ $_.TestPillar -eq 'Network' -and $_.TestStatus -notin 'Skipped', 'Planned' }.Count
         InfrastructurePassed = @($TestResults).Where{ $_.TestPillar -eq 'Infrastructure' -and $_.TestStatus -eq 'Passed' }.Count
         InfrastructureTotal  = @($TestResults).Where{ $_.TestPillar -eq 'Infrastructure' -and $_.TestStatus -notin 'Skipped', 'Planned' }.Count
+        PowerPlatformPassed  = @($TestResults).Where{ $_.TestPillar -eq 'PowerPlatform' -and $_.TestStatus -eq 'Passed' }.Count
+        PowerPlatformTotal   = @($TestResults).Where{ $_.TestPillar -eq 'PowerPlatform' -and $_.TestStatus -notin 'Skipped', 'Planned' }.Count
     }
 
     return $summary

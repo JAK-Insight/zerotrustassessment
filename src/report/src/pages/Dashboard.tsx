@@ -328,6 +328,17 @@ export default function Dashboard() {
                                         </span>
                                     </div>
                                 </div>
+                                {reportData.TestResultSummary.PowerPlatformTotal ? (
+                                <div className="grid flex-1 auto-rows-min gap-0.5">
+                                    <div className="text-sm text-muted-foreground">Power Platform</div>
+                                    <div className="flex items-baseline gap-1 text-xl font-bold tabular-nums leading-none">
+                                        {reportData.TestResultSummary.PowerPlatformPassed}/{reportData.TestResultSummary.PowerPlatformTotal}
+                                        <span className="text-sm font-normal text-muted-foreground">
+                                            tests
+                                        </span>
+                                    </div>
+                                </div>
+                                ) : null}
                             </div>
                             <ChartContainer
                                 config={{
@@ -350,6 +361,10 @@ export default function Dashboard() {
                                     infrastructure: {
                                         label: "Infrastructure",
                                         color: "hsl(var(--chart-5))",
+                                    },
+                                    powerplatform: {
+                                        label: "Power Platform",
+                                        color: "hsl(var(--chart-6))",
                                     },
                                 }}
                                 className="mx-auto aspect-square w-full max-w-[80%]"
@@ -393,6 +408,13 @@ export default function Dashboard() {
                                             activity: "identity",
                                             value: (reportData.TestResultSummary.IdentityPassed / reportData.TestResultSummary.IdentityTotal) * 100,
                                             fill: "var(--color-move)",
+                                        },
+                                        {
+                                            activity: "powerplatform",
+                                            value: reportData.TestResultSummary.PowerPlatformTotal
+                                                ? ((reportData.TestResultSummary.PowerPlatformPassed ?? 0) / reportData.TestResultSummary.PowerPlatformTotal) * 100
+                                                : 0,
+                                            fill: "var(--color-powerplatform)",
                                         },
                                     ]}
                                     innerRadius="20%"

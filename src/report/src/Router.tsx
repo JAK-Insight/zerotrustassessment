@@ -10,6 +10,7 @@ import Apps from "./pages/Apps";
 import Network from "./pages/Network";
 import Infrastructure from "./pages/Infrastructure";
 import Data from "./pages/Data";
+import PowerPlatform from "./pages/PowerPlatform";
 import ListAll from "./pages/ListAll";
 
 export const router = createHashRouter([
@@ -44,6 +45,10 @@ export const router = createHashRouter([
             {
                 path: "data",
                 element: <Data />,
+            },
+            {
+                path: "power-platform",
+                element: <PowerPlatform />,
             },
             {
                 path: "list-all",

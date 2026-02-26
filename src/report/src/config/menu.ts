@@ -45,6 +45,10 @@ const allMenuItems: NavItemWithChildren[] = [
         to: 'data',
     },
     {
+        title: 'Power Platform',
+        to: 'power-platform',
+    },
+    {
         title: 'List All',
         to: 'list-all',
     },
@@ -66,6 +70,9 @@ export const mainMenu: NavItemWithChildren[] = allMenuItems.filter(item => {
     }
     if (item.title === 'Infrastructure') {
         return reportData.TestResultSummary?.InfrastructureTotal !== undefined
+    }
+    if (item.title === 'Power Platform') {
+        return reportData.TestResultSummary?.PowerPlatformTotal !== undefined
     }
     return true
 })

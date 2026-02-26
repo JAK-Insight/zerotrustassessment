@@ -121,6 +121,8 @@ export interface TestResultSummaryData {
   NetworkTotal?: number;
   InfrastructurePassed?: number;
   InfrastructureTotal?: number;
+  PowerPlatformPassed?: number;
+  PowerPlatformTotal?: number;
 }
 export interface SankeyData {
   nodes: SankeyDataNode[];
