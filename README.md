@@ -17,6 +17,64 @@ Connect-ZtAssessment
 Invoke-ZtAssessment
 ```
 
+## What it checks
+
+The assessment evaluates your tenant across six Zero Trust pillars:
+
+| Pillar | Coverage |
+|:---|:---|
+| **Identity** | Entra ID configuration, Conditional Access, PIM, authentication methods, app governance, AI agent identity governance |
+| **Devices** | Intune compliance, Defender for Endpoint enrollment, device restrictions |
+| **Network** | Conditional Access named locations, network policies |
+| **Data** | Purview / Information Protection labels, sensitivity policies, SharePoint data governance |
+| **Infrastructure** | Azure Defender for Cloud, role assignments, storage security, Key Vault, logging |
+| **Power Platform** | Tenant isolation, DLP policies, environment security groups, Managed Environment controls |
+
+## Connection requirements
+
+`Connect-ZtAssessment` connects to Microsoft Graph and (optionally) Azure. It requests the following:
+
+### Microsoft Graph delegated scopes (`Get-ZtGraphScope`)
+
+The following read-only scopes are requested automatically:
+
+- `AgentIdentity.Read.All` *(preview — required for AI agent identity governance check)*
+- `Application.Read.All`
+- `AuditLog.Read.All`
+- `CrossTenantInformation.ReadBasic.All`
+- `DeviceManagementApps.Read.All`
+- `DeviceManagementConfiguration.Read.All`
+- `DeviceManagementManagedDevices.Read.All`
+- `DeviceManagementRBAC.Read.All`
+- `DeviceManagementServiceConfig.Read.All`
+- `Directory.Read.All`
+- `DirectoryRecommendations.Read.All`
+- `EntitlementManagement.Read.All`
+- `IdentityRiskEvent.Read.All`
+- `IdentityRiskyUser.Read.All`
+- `Policy.Read.All`
+- `Policy.Read.ConditionalAccess`
+- `Policy.Read.PermissionGrant`
+- `PrivilegedAccess.Read.AzureAD`
+- `Reports.Read.All`
+- `RoleManagement.Read.All`
+- `RoleManagement.Read.Directory`
+- `UserAuthenticationMethod.Read.All`
+
+### Azure (optional)
+
+Some checks require an Azure connection (`Connect-AzAccount`). `Connect-ZtAssessment` handles this automatically. The account needs **Reader** access on the Azure subscriptions to be evaluated.
+
+Azure is required for:
+- **Infrastructure** pillar — reads Azure resource configuration via ARM and Resource Graph
+- **Power Platform** pillar — uses the Azure token to authenticate against the Power Platform Admin API
+- **Identity** test 21788 — checks for standing Global Admin access to Azure subscriptions
+- **Network** tests — some named location checks read Azure AD sign-in data
+
+### Power Platform (optional)
+
+Power Platform checks require the **Power Platform Administrator** or **Global Administrator** role in addition to the Azure connection. The assessment uses the existing Azure token to call the Power Platform Admin API — no separate module or credential is needed.
+
 ## Quicklinks
 
 * [aka.ms/zerotrust/assessment](https://aka.ms/zerotrust/assessment) → Microsoft Learn docs page for the assessment (includes install guide).
