@@ -9,7 +9,11 @@ function Invoke-ZtPowerPlatformRequest {
         [string]$Path,
 
         [Parameter(Mandatory = $false)]
-        [string]$ApiVersion = '2023-06-01'
+        [string]$ApiVersion = '2023-06-01',
+
+        [Parameter(Mandatory = $false)]
+        [ValidateSet('GET', 'POST')]
+        [string]$Method = 'GET'
     )
 
     $baseUrl = 'https://api.bap.microsoft.com/providers/Microsoft.BusinessAppPlatform'
@@ -22,6 +26,6 @@ function Invoke-ZtPowerPlatformRequest {
         Accept        = 'application/json'
     }
 
-    $response = Invoke-RestMethod -Uri $uri -Headers $headers -Method GET -ErrorAction Stop
+    $response = Invoke-RestMethod -Uri $uri -Headers $headers -Method $Method -ErrorAction Stop
     return $response
 }

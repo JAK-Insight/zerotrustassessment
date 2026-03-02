@@ -41,44 +41,24 @@ function Test-Assessment-37001 {
     Write-ZtProgress -Activity $activity -Status 'Getting tenant settings'
 
     $passed         = $false
-    $customStatus   = $null
+    $customStatus   = 'Investigate'
     $errorMsg       = $null
-    $apiHttpStatus  = $null
     $tenantSettings = $null
 
-    # Try multiple known paths for tenant settings
-    $tsPaths = @(
-        @{ Path = '/scopes/admin/tenantSettings'; Version = '2023-06-01' },
-        @{ Path = '/scopes/admin/tenantSettings'; Version = '2020-10-01' },
-        @{ Path = '/tenantSettings';              Version = '2023-06-01' }
-    )
-    foreach ($attempt in $tsPaths) {
-        try {
-            $tenantSettings = Invoke-ZtPowerPlatformRequest -Path $attempt.Path -ApiVersion $attempt.Version -ErrorAction Stop
-            break
-        }
-        catch {
-            $resp = $_.Exception.Response
-            if ($resp) { $apiHttpStatus = [int]$resp.StatusCode }
-            $errorMsg = $_.Exception.Message
-        }
+    # The tenant isolation on/off status is not exposed by the public BAP REST API.
+    # POST /listTenantSettings returns general governance settings but does NOT
+    # include the isolation toggle.  We call it to verify connectivity and surface
+    # related governance settings alongside manual verification steps.
+    try {
+        $tenantSettings = Invoke-ZtPowerPlatformRequest -Path '/listTenantSettings' -Method POST -ApiVersion '2023-06-01' -ErrorAction Stop
     }
-    if ($tenantSettings) { $errorMsg = $null; $apiHttpStatus = $null }
-    $customStatus = if ($tenantSettings) { $null } else { 'Investigate' }
+    catch {
+        $errorMsg = $_.Exception.Message
+    }
 
     $lines = New-Object System.Collections.Generic.List[string]
 
-    if ($apiHttpStatus -in 403, 404) {
-        $lines.Add(('The Power Platform tenant settings API returned HTTP {0}.' -f $apiHttpStatus))
-        $lines.Add('')
-        $lines.Add('This endpoint may require the **Power Platform Administrator** role. An account with only the Global Administrator role may not have access to tenant-level Power Platform policy settings.')
-        $lines.Add('')
-        $lines.Add('Please verify tenant isolation manually:')
-        $lines.Add('1. Sign in to the [Power Platform Admin Center](https://admin.powerplatform.microsoft.com/policies/tenant-isolation)')
-        $lines.Add('2. Navigate to **Policies > Tenant isolation**')
-        $lines.Add('3. Confirm that tenant isolation is **Enabled** with the desired inbound/outbound restriction')
-    }
-    elseif ($errorMsg) {
+    if ($errorMsg) {
         $lines.Add('Unable to retrieve Power Platform tenant settings.')
         $lines.Add('')
         $lines.Add(("**Details:** {0}" -f $errorMsg))
@@ -86,55 +66,48 @@ function Test-Assessment-37001 {
         $lines.Add('Ensure the assessment account has the **Power Platform Administrator** or **Global Administrator** role.')
     }
     else {
-        $isolationMode  = $null
-        $isolationFound = $false
+        # The listTenantSettings response does not include the tenant isolation
+        # toggle — that setting is only accessible through the Power Platform
+        # Admin Center UI or the Microsoft.PowerApps.Administration.PowerShell module.
+        $lines.Add('The tenant isolation status cannot be determined automatically. The Power Platform Admin API does not expose the isolation toggle through its public REST endpoints.')
+        $lines.Add('')
+        $lines.Add('**Please verify tenant isolation manually:**')
+        $lines.Add('')
+        $lines.Add('1. Sign in to the [Power Platform Admin Center](https://admin.powerplatform.microsoft.com)')
+        $lines.Add('2. Navigate to **Security** > **Identity and access** > **Tenant isolation**')
+        $lines.Add('3. Confirm that **Restrict cross-tenant connections** is **Enabled** with the desired inbound/outbound rules')
+        $lines.Add('')
 
-        if ($tenantSettings.PSObject.Properties['properties']) {
-            $props = $tenantSettings.properties
-            # Try tenantIsolationSettings.allowedIntegrationTargets
-            if ($props.PSObject.Properties['tenantIsolationSettings']) {
-                $iso = $props.tenantIsolationSettings
-                if ($iso.PSObject.Properties['allowedIntegrationTargets']) {
-                    $isolationMode  = $iso.allowedIntegrationTargets
-                    $isolationFound = $true
-                    $passed = ($isolationMode -ne 'None')
-                }
-                elseif ($iso.PSObject.Properties['isDisabled']) {
-                    $isolationMode  = if (-not $iso.isDisabled) { 'Enabled' } else { 'None' }
-                    $isolationFound = $true
-                    $passed = (-not $iso.isDisabled)
-                }
-            }
-            # Try powerPlatform.governance.enableTenantIsolation
-            elseif ($props.PSObject.Properties['powerPlatform'] -and $props.powerPlatform.PSObject.Properties['governance']) {
-                $gov = $props.powerPlatform.governance
-                if ($gov.PSObject.Properties['enableTenantIsolation']) {
-                    $isolationMode  = if ($gov.enableTenantIsolation) { 'Enabled' } else { 'None' }
-                    $isolationFound = $true
-                    $passed = $gov.enableTenantIsolation
-                }
-            }
+        # Surface related governance settings that ARE available in the API
+        $gov = $null
+        if ($tenantSettings.PSObject.Properties['powerPlatform'] -and
+            $tenantSettings.powerPlatform.PSObject.Properties['governance']) {
+            $gov = $tenantSettings.powerPlatform.governance
         }
 
-        if (-not $isolationFound) {
-            $customStatus = 'Investigate'
-            $lines.Add('The tenant isolation setting could not be read from the Power Platform Admin API response.')
-            $lines.Add('')
-            $lines.Add('Please verify the tenant isolation status in the [Power Platform Admin Center](https://admin.powerplatform.microsoft.com/policies/tenant-isolation).')
-        }
-        else {
-            if ($passed) {
-                $lines.Add(("Tenant isolation is enabled (mode: **{0}**). Cross-tenant connector connections are restricted." -f $isolationMode))
+        $lines.Add('The following related governance settings were read from the tenant:')
+        $lines.Add('')
+        $lines.Add('| Setting | Value |')
+        $lines.Add('|:---|:---|')
+
+        # Environment creation
+        $envCreateDisabled = $tenantSettings.disableEnvironmentCreationByNonAdminUsers
+        $lines.Add(("| Non-admin environment creation disabled | {0} |" -f $(if ($envCreateDisabled) { 'Yes' } else { 'No' })))
+
+        # Trial environment creation
+        $trialDisabled = $tenantSettings.disableTrialEnvironmentCreationByNonAdminUsers
+        $lines.Add(("| Non-admin trial environment creation disabled | {0} |" -f $(if ($trialDisabled) { 'Yes' } else { 'No' })))
+
+        if ($gov) {
+            # Developer environment creation
+            if ($gov.PSObject.Properties['disableDeveloperEnvironmentCreationByNonAdminUsers']) {
+                $devDisabled = $gov.disableDeveloperEnvironmentCreationByNonAdminUsers
+                $lines.Add(("| Non-admin developer environment creation disabled | {0} |" -f $(if ($devDisabled) { 'Yes' } else { 'No' })))
             }
-            else {
-                $lines.Add('Tenant isolation is **not enabled**. External tenants can make inbound/outbound Power Platform connections to your tenant.')
-                $lines.Add('')
-                $lines.Add('Enable tenant isolation in [Power Platform Admin Center > Policies > Tenant isolation](https://admin.powerplatform.microsoft.com/policies/tenant-isolation).')
+            # Default environment routing
+            if ($gov.PSObject.Properties['enableDefaultEnvironmentRouting']) {
+                $lines.Add(("| Default environment routing enabled | {0} |" -f $(if ($gov.enableDefaultEnvironmentRouting) { 'Yes' } else { 'No' })))
             }
-            $lines.Add('')
-            $lines.Add('| Setting | Value |')
-            $lines.Add('|:---|:---|')
-            $lines.Add(("| Isolation mode | {0} |" -f $isolationMode))
         }
     }
 
