@@ -1,6 +1,6 @@
 <#
 .SYNOPSIS
-    Downgrade Justification Required for Sensitivity Labels
+    Users must provide justification to downgrade sensitivity labels
 
 .DESCRIPTION
     Sensitivity label policies should require users to provide justification when removing or downgrading labels. When downgrade justification is not required, users can silently reduce the classification level of sensitive content without creating an audit trail, creating compliance and audit risks.
@@ -15,13 +15,14 @@ function Test-Assessment-35018 {
     [ZtTest(
         Category = 'Information Protection',
         ImplementationCost = 'Low',
+        Service = ('SecurityCompliance'),
         MinimumLicense = ('Microsoft 365 E3'),
         Pillar = 'Data',
         RiskLevel = 'Medium',
         SfiPillar = 'Protect tenants and production systems',
         TenantType = ('Workforce'),
         TestId = 35018,
-        Title = 'Downgrade Justification Required for Sensitivity Labels',
+        Title = 'Users must provide justification to downgrade sensitivity labels',
         UserImpact = 'Medium'
     )]
     [CmdletBinding()]
@@ -37,7 +38,7 @@ function Test-Assessment-35018 {
     $errorMsg = $null
 
     try {
-        $enabledPolicies = Get-LabelPolicy -ErrorAction Stop | Where-Object { $_.Enabled -eq $true }
+        $enabledPolicies = Get-LabelPolicy -WarningAction SilentlyContinue -ErrorAction Stop | Where-Object { $_.Enabled -eq $true }
     }
     catch {
         $errorMsg = $_

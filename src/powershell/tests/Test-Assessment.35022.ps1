@@ -1,6 +1,6 @@
 <#
 .SYNOPSIS
-    On-Demand Scans Configured for Sensitive Information Discovery
+    On-demand scans are configured for sensitive information discovery
 
 .DESCRIPTION
     Checks if on-demand scans are configured for sensitive information discovery in
@@ -21,13 +21,14 @@ function Test-Assessment-35022 {
     [ZtTest(
         Category = 'Information Protection',
         ImplementationCost = 'Medium',
-        MinimumLicense = 'Microsoft 365 E5',
+        Service = ('SecurityCompliance'),
+        CompatibleLicense = ('EXCHANGE_S_ENTERPRISE'),
         Pillar = 'Data',
         RiskLevel = 'Medium',
         SfiPillar = 'Protect tenants and production systems',
         TenantType = 'Workforce',
         TestId = 35022,
-        Title = 'On-Demand scans configured for sensitive information discovery',
+        Title = 'On-demand scans are configured for sensitive information discovery',
         UserImpact = 'Low'
     )]
     [CmdletBinding()]

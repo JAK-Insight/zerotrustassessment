@@ -1,6 +1,6 @@
 <#
 .SYNOPSIS
-    Validates that custom Sensitive Information Types (SITs) are configured in the organization.
+    Custom sensitive information types are configured
 
 .DESCRIPTION
     This test checks if custom Sensitive Information Types are configured, enabling detection of
@@ -19,13 +19,14 @@ function Test-Assessment-35033 {
     [ZtTest(
         Category = 'Advanced Classification',
         ImplementationCost = 'High',
-        MinimumLicense = ('Microsoft 365 E5 Compliance'),
+        Service = ('SecurityCompliance'),
+        CompatibleLicense = ('EXCHANGE_S_ENTERPRISE'),
         Pillar = 'Data',
         RiskLevel = 'High',
         SfiPillar = 'Protect tenants and production systems',
         TenantType = ('Workforce'),
         TestId = 35033,
-        Title = 'Custom Sensitive Information Types (SITs) Configured',
+        Title = 'Custom sensitive information types are configured',
         UserImpact = 'Medium'
     )]
     [CmdletBinding()]

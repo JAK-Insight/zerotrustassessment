@@ -75,7 +75,8 @@ FunctionsToExport = 'Connect-ZtAssessment', 'Disconnect-ZtAssessment',
                'Get-ZtExportStatistics', 'Get-ZtGraphScope', 'Get-ZtTest',
                'Get-ZtTestStatistics', 'Invoke-ZtAssessment',
                'Invoke-ZtGraphRequest', 'Invoke-ZtAzureRequest',
-               'Invoke-ZtAzureResourceGraphRequest'
+               'Invoke-ZtAzureResourceGraphRequest', 'Clear-ZtRequiredModule',
+               'Get-ZtCurrentLicense'
 
 # Cmdlets to export from this module, for best performance, do not use wildcards and do not delete the entry, use an empty array if there are no cmdlets to export.
 CmdletsToExport = @()
@@ -93,7 +94,7 @@ AliasesToExport = 'Invoke-ZeroTrustAssessment'
 # ModuleList = @()
 
 # List of all files packaged with this module
-# FileList = @()
+FileList = @()
 
 # Private data to pass to the module specified in RootModule/ModuleToProcess. This may also contain a PSData hashtable with additional module metadata used by PowerShell.
 PrivateData = @{
@@ -104,11 +105,22 @@ PrivateData = @{
     )
 
     XPlatPowerShellRequiredModules = @(
-        @{ModuleName = 'Microsoft.Graph.Authentication'; GUID = '883916f2-9184-46ee-b1f8-b6a2fb784cee'; ModuleVersion = '2.32.0'; },
-        @{ModuleName = 'Microsoft.Graph.Beta.Teams'; GUID = 'e264919d-7ae2-4a89-ba8b-524bd93ddc08'; ModuleVersion = '2.32.0'; },
+        @{ModuleName = 'Microsoft.Graph.Authentication'; GUID = '883916f2-9184-46ee-b1f8-b6a2fb784cee'; ModuleVersion = '2.35.0'; },
+        @{ModuleName = 'Microsoft.Graph.Beta.Teams'; GUID = 'e264919d-7ae2-4a89-ba8b-524bd93ddc08'; ModuleVersion = '2.35.0'; },
         @{ModuleName = 'Az.Accounts'; GUID = '17a2feff-488b-47f9-8729-e2cec094624c'; ModuleVersion = '4.0.2'; },
         @{ModuleName = 'ExchangeOnlineManagement'; GUID = 'b5eced50-afa4-455b-847a-d8fb64140a22'; RequiredVersion = '3.9.0'; }
     )
+
+    ServiceToRequiredModuleMap = @{
+        'Graph'              = @('Microsoft.Graph.Authentication', 'Microsoft.Graph.Beta.Teams')
+        'Azure'              = @('Az.Accounts')
+        'AipService'         = @('AipService')
+        'SharePointOnline'   = @('Microsoft.Online.SharePoint.PowerShell')
+        'ExchangeOnline'     = @('ExchangeOnlineManagement')
+        'SecurityCompliance' = @('ExchangeOnlineManagement')
+    }
+
+    serviceConnectionOrder = @('Graph', 'Azure', 'AipService', 'SharePointOnline', 'ExchangeOnline', 'SecurityCompliance')
 
     PSData = @{
         # Tags applied to this module. These help with module discovery in online galleries.
@@ -134,16 +146,6 @@ PrivateData = @{
 
         # External dependent modules of this module
         # ExternalModuleDependencies = @()
-
-        # TODO: Some tests depends for:
-            # Connected State
-            # Permissions
-            # Licensing
-
-        # What Valid reasons to skip, fail, error a test.
-
-        # TODO: Check commands because they may be dedicated based on permissions. And the current connection.
-        # TODO: Based on Licensing, you may have
 
     } # End of PSData hashtable
 

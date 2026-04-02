@@ -14,16 +14,17 @@
 
 function Test-Assessment-25379 {
     [ZtTest(
-        Category = 'External Identities',
-        ImplementationCost = 'Medium',
-        MinimumLicense = ('AAD_PREMIUM'),
-        Pillar = 'Network',
-        RiskLevel = 'Medium',
-        SfiPillar = 'Protect networks',
-        TenantType = ('Workforce','External'),
-        TestId = 25379,
-        Title = 'Compliant network controls are used in conditional access policies',
-        UserImpact = 'Medium'
+    	Category = 'Global Secure Access',
+    	ImplementationCost = 'Medium',
+    	MinimumLicense = ('AAD_PREMIUM'),
+    	CompatibleLicense = ('AAD_PREMIUM','AAD_PREMIUM_P2'),
+    	Pillar = 'Network',
+    	RiskLevel = 'Medium',
+    	SfiPillar = 'Protect networks',
+    	TenantType = ('Workforce','External'),
+    	TestId = 25379,
+    	Title = 'Conditional Access policies use compliant network controls',
+    	UserImpact = 'Medium'
     )]
     [CmdletBinding()]
     param()

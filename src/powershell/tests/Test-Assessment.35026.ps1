@@ -1,6 +1,6 @@
-<#
+﻿<#
 .SYNOPSIS
-    Validates that SimplifiedClientAccessEnabled is enabled for Office 365 Message Encryption (OME).
+    Office 365 Message Encryption is configured with simplified client access
 
 .DESCRIPTION
     This test checks if SimplifiedClientAccessEnabled is enabled for OME, which controls whether the
@@ -18,16 +18,17 @@
 
 function Test-Assessment-35026 {
     [ZtTest(
-        Category = 'Office 365 Message Encryption (OME)',
-        ImplementationCost = 'Low',
-        MinimumLicense = ('Microsoft 365 E3'),
-        Pillar = 'Data',
-        RiskLevel = 'Medium',
-        SfiPillar = 'Protect tenants and production systems',
-        TenantType = ('Workforce', 'External'),
-        TestId = 35026,
-        Title = 'Office 365 Message Encryption (OME) - SimplifiedClientAccessEnabled',
-        UserImpact = 'Medium'
+    	Category = 'Microsoft Purview Message Encryption',
+    	ImplementationCost = 'Low',
+    	MinimumLicense = ('Microsoft 365 E3'),
+    	Service = ('ExchangeOnline'),
+    	Pillar = 'Data',
+    	RiskLevel = 'Medium',
+    	SfiPillar = 'Protect tenants and production systems',
+    	TenantType = ('Workforce','External'),
+    	TestId = 35026,
+    	Title = 'Microsoft Purview Message Encryption is configured with simplified client access',
+    	UserImpact = 'Medium'
     )]
     [CmdletBinding()]
     param()

@@ -1,20 +1,21 @@
-<#
+﻿<#
 .SYNOPSIS
-Checks whether co-authoring is enabled for encrypted documents with sensitivity labels.
+    Co-authoring is enabled for encrypted documents
 #>
 
 function Test-Assessment-35009 {
     [ZtTest(
-        Category = 'Sensitivity Labels',
-        ImplementationCost = 'Low',
-        MinimumLicense = ('Microsoft 365 E5'),
-        Pillar = 'Data',
-        RiskLevel = 'Low',
-        SfiPillar = '',
-        TenantType = ('Workforce'),
-        TestId = 35009,
-        Title = 'Co-Authoring Enabled for Encrypted Documents',
-        UserImpact = 'High'
+    	Category = 'Sensitivity Labels',
+    	ImplementationCost = 'Low',
+    	MinimumLicense = ('Microsoft 365 E5'),
+    	Service = ('SecurityCompliance'),
+    	Pillar = 'Data',
+    	RiskLevel = 'Low',
+    	SfiPillar = 'Protect tenants and production systems',
+    	TenantType = ('Workforce'),
+    	TestId = 35009,
+    	Title = 'Co-authoring is enabled for files encrypted with sensitivity labels',
+    	UserImpact = 'High'
     )]
     [CmdletBinding()]
     param()

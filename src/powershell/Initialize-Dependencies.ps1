@@ -98,18 +98,8 @@ function Initialize-Dependencies {
     $moduleManifest = Import-PowerShellDataFile -Path $ModuleManifestPath -ErrorAction Stop
     [Microsoft.PowerShell.Commands.ModuleSpecification[]]$requiredModules = $moduleManifest.RequiredModules
     [Microsoft.PowerShell.Commands.ModuleSpecification[]]$externalModuleDependencies = $moduleManifest.PrivateData.ExternalModuleDependencies
-
-    [Microsoft.PowerShell.Commands.ModuleSpecification[]]$xPlatPowerShellRequiredModules = @(
-        @{ModuleName = 'Microsoft.Graph.Authentication'; GUID = '883916f2-9184-46ee-b1f8-b6a2fb784cee'; ModuleVersion = '2.32.0'; },
-        @{ModuleName = 'Microsoft.Graph.Beta.Teams'; GUID = 'e264919d-7ae2-4a89-ba8b-524bd93ddc08'; ModuleVersion = '2.32.0'; },
-        @{ModuleName = 'Az.Accounts'; GUID = '17a2feff-488b-47f9-8729-e2cec094624c'; ModuleVersion = '4.0.2'; },
-        @{ModuleName = 'ExchangeOnlineManagement'; GUID = 'b5eced50-afa4-455b-847a-d8fb64140a22'; RequiredVersion = '3.9.0'; }
-    )
-
-    [Microsoft.PowerShell.Commands.ModuleSpecification[]]$windowsPowerShellRequiredModules = @(
-        @{ModuleName = 'Microsoft.Online.SharePoint.PowerShell'; GUID = 'adedde5f-e77b-4682-ab3d-a4cb4ff79b83'; ModuleVersion = '16.0.26914.12004'; },
-        @{ModuleName = 'AipService'; GUID = 'e338ccc0-3333-4479-87fe-66382d33782d'; ModuleVersion = '3.0.0.1'; }
-    )
+    [Microsoft.PowerShell.Commands.ModuleSpecification[]]$xPlatPowerShellRequiredModules = $moduleManifest.PrivateData.XPlatPowerShellRequiredModules
+    [Microsoft.PowerShell.Commands.ModuleSpecification[]]$windowsPowerShellRequiredModules = $moduleManifest.PrivateData.WindowsPowerShellRequiredModules
 
     #region Build list of RequiredModule based on OS
     [Microsoft.PowerShell.Commands.ModuleSpecification[]]$allModuleDependencies = $requiredModules + $xPlatPowerShellRequiredModules
@@ -128,31 +118,25 @@ function Initialize-Dependencies {
     {
         #region The ZeroTrustAssessment report should be run in Windows.
         # on Non-windows platform, some pillars won't be available, because some required modules only work on Windows PowerShell.
-        Write-Host -Object "`r`n" -ForegroundColor Yellow
-        Write-Host -Object '⚠️ Warning: The ZeroTrustAssessment module is designed to run on Windows, in PowerShell 7.'
-        Write-Host -Object 'Some pillars require modules that can only run on Windows PowerShell (Windows PowerShell 5.1) with implicit remoting.' -ForegroundColor Yellow
+        Write-Host
+        Write-Host -Object '⚠️ Warning: For the most complete Zero Trust Assessment results, run this tool on Windows.' -ForegroundColor Yellow
+        Write-Host -Object 'Some assessment tests rely on modules (SPO, AIP) that only work with Windows PowerShell (5.1).' -ForegroundColor Yellow
+        Write-Host -Object 'If you run the tool on macOS or Linux, a few tests may be skipped.' -ForegroundColor Yellow
         # skipping module installation.
         #endregion
     }
-    elseif (-not $SkipModuleInstallation.IsPresent)
-    {
-        Write-Host -Object "`r`n"
-        Write-Host -Object ('Resolving {0} dependencies...' -f $allModuleDependencies.Count) -ForegroundColor Green
 
-        $saveModuleCmdParams = @{
-            Path = $RequiredModulesPath
-        }
+    if (-not $SkipModuleInstallation.IsPresent)
+    {
+        Write-Host
+        Write-Host -Object ('Resolving {0} dependencies...' -f $requiredModuleToSave.Count) -ForegroundColor Green
 
         if ($saveModuleCmd = (Get-Command -Name Save-PSResource -ErrorAction Ignore))
         {
-            $saveModuleCmdParams.Add('TrustRepository', $true)
-            $saveModuleCmdParams.Add('Prerelease', $AllowPrerelease.IsPresent)
             Write-Verbose -Message "Saving required modules using Save-PSResource..."
         }
         elseif ($saveModuleCmd = (Get-Command -Name Save-Module -ErrorAction Ignore))
         {
-            $saveModuleCmdParams.Add('Force', $true)
-            $saveModuleCmdParams.Add('AllowPrerelease', $AllowPrerelease.IsPresent)
             Write-Verbose -Message "Saving required modules using Save-Module..."
         }
         else
@@ -164,7 +148,6 @@ function Initialize-Dependencies {
         foreach ($moduleSpec in $requiredModuleToSave)
         {
             Write-Verbose -Message ("Saving module {0} with version {1}..." -f $moduleSpec.Name, $moduleSpec.Version)
-            $saveModuleCmdParamsClone = $saveModuleCmdParams.Clone()
             $isModulePresent = Get-Module -FullyQualifiedName $moduleSpec -ListAvailable -ErrorAction Ignore
 
             if ($isModulePresent)
@@ -177,32 +160,57 @@ function Initialize-Dependencies {
             {
                 if ($saveModuleCmd.Name -eq 'Save-PSResource')
                 {
-                    $saveModuleCmdParamsClone['Name'] = $moduleSpec.Name
-                    # Save-PSResource uses NuGet version range syntax: https://learn.microsoft.com/en-us/nuget/concepts/package-versioning?tabs=semver20sort#version-ranges
+                    # To Save-PSResource we need to first Find-PSResource to get the latest available in given range.
+                    $findModuleParams = @{
+                        Name = $moduleSpec.Name
+                        ErrorAction = 'Stop'
+                        'Prerelease' = $AllowPrerelease.IsPresent
+                    }
+
+                    # Find-PSResource uses NuGet version range syntax: https://learn.microsoft.com/en-us/nuget/concepts/package-versioning?tabs=semver20sort#version-ranges
                     if ($moduleSpec.RequiredVersion) {
                         # Absolute required version
-                        $saveModuleCmdParamsClone['Version'] = '[{0}]' -f $moduleSpec.RequiredVersion
+                        $findModuleParams['Version'] = '[{0}]' -f $moduleSpec.RequiredVersion
                     }
                     elseif ($moduleSpec.MaximumVersion -and $moduleSpec.Version) {
                         # Minimum and maximum version (exact range) inclusive
-                        $saveModuleCmdParamsClone['Version'] = '[{0},{1}]' -f $moduleSpec.Version, $moduleSpec.MaximumVersion
+                        $findModuleParams['Version'] = '[{0},{1}]' -f $moduleSpec.Version, $moduleSpec.MaximumVersion
                     }
                     elseif ($moduleSpec.MaximumVersion) {
                         # Maximum version inclusive
-                        $saveModuleCmdParamsClone['Version'] = '(,{0}]' -f $moduleSpec.MaximumVersion
+                        $findModuleParams['Version'] = '(,{0}]' -f $moduleSpec.MaximumVersion
                     }
                     elseif ($moduleSpec.Version) {
                         # Minimum version inclusive
-                         $saveModuleCmdParamsClone['Version'] = '[{0}, )' -f $moduleSpec.Version
+                        $findModuleParams['Version'] = '[{0}, )' -f $moduleSpec.Version
                     }
 
-                    $saveModuleCmdParamsClone['PassThru'] = $true
-                    $savedModule = (& $saveModuleCmd @saveModuleCmdParamsClone).Where({ $_.Name -eq $moduleSpec.Name },1)
+                    # Get the latest version of the module in the range specified in Module Specification.
+                    $latestModuleInRange = Find-PSResource @findModuleParams -ErrorAction Stop | Sort-Object -Property Version -Descending | Select-Object -First 1
+
+                    $savePSResourceParams = @{
+                        Path = $RequiredModulesPath
+                        PassThru = $true
+                        ErrorAction = 'Stop'
+                        TrustRepository = $true
+                    }
+
+                    $savedModule = ($latestModuleInRange | Save-PSResource @savePSResourceParams).Where({ $_.Name -eq $moduleSpec.Name },1)
                     Write-Host -Object ('    ⬇️ Module {0} v{1} saved successfully.' -f $moduleSpec.Name, $savedModule.Version) -ForegroundColor Green
                 }
                 elseif ($saveModuleCmd.Name -eq 'Save-Module')
                 {
-                    $moduleSpec | &$saveModuleCmd @saveModuleCmdParamsClone
+                    $saveModuleCmdParams = @{
+                        ErrorAction = 'Stop'
+                        Force = $true
+                        Path = $RequiredModulesPath
+                    }
+
+                    if ($AllowPrerelease.IsPresent)
+                    {
+                        $saveModuleCmdParams['AllowPrerelease'] = $AllowPrerelease.IsPresent
+                    }
+                    $moduleSpec | &$saveModuleCmd @saveModuleCmdParams
                     Write-Host -Object ('    ⬇️ Module {0} saved successfully.' -f $moduleSpec.Name) -ForegroundColor Green
                 }
             }
@@ -218,7 +226,7 @@ function Initialize-Dependencies {
         $loadedAssemblies = [System.AppDomain]::CurrentDomain.GetAssemblies() | Where-Object { $_.GetName().Name -eq 'Microsoft.Identity.Client' }
 
         if ($loadedAssemblies) {
-            Write-Warning -Message "MSAL assembly is already loaded. This may cause DLL conflicts."
+            Write-Verbose -Message "MSAL assembly is already loaded. This may cause DLL conflicts."
             Write-Verbose -Message "  Loaded versions:"
             foreach ($asm in $loadedAssemblies) {
                 Write-Verbose -Message ("  - {0} from {1}" -f $asm.GetName().Version, $asm.Location)
@@ -246,18 +254,23 @@ function Initialize-Dependencies {
                     $null = [System.Reflection.Assembly]::LoadFrom($_.DLLPath)
                 }
 
-                $brokerInteropToLoad = Get-ChildItem -Path (Split-Path -Path $_.DLLPath) -Filter "Microsoft.Identity.Client*.dll" -File | Where-Object { $_.Name -ne "Microsoft.Identity.Client.dll" }
-                foreach ($broker in $brokerInteropToLoad)
+                # Load related MSAL broker/interop DLLs and Microsoft.IdentityModel.Abstractions (required by MSAL's WithLogging method)
+                $msalDir = Split-Path -Path $_.DLLPath
+                $relatedDllsToLoad = Get-ChildItem -Path $msalDir -File | Where-Object {
+                    ($_.Name -like 'Microsoft.Identity.Client*.dll' -and $_.Name -ne 'Microsoft.Identity.Client.dll') -or
+                    $_.Name -eq 'Microsoft.IdentityModel.Abstractions.dll'
+                }
+                foreach ($relatedDll in $relatedDllsToLoad)
                 {
-                    Write-Debug -Message ('Loading related MSAL broker/interop assembly {0}' -f $broker.Name)
+                    Write-Debug -Message ('Loading related MSAL/IdentityModel assembly {0}' -f $relatedDll.Name)
                     try
                     {
-                        $null = [System.Reflection.Assembly]::LoadFrom($broker.FullName)
-                        Write-Host -Object ('    ✅ Loaded {0}' -f $broker.Name) -ForegroundColor Green
+                        $null = [System.Reflection.Assembly]::LoadFrom($relatedDll.FullName)
+                        Write-Host -Object ('    ✅ Loaded {0}' -f $relatedDll.Name) -ForegroundColor Green
                     }
                     catch
                     {
-                        Write-Debug -Message ("Failed to load related MSAL assembly {0}: {1}" -f $broker.FullName, $_)
+                        Write-Debug -Message ("Failed to load related assembly {0}: {1}" -f $relatedDll.FullName, $_)
                     }
                 }
             }

@@ -1,6 +1,6 @@
 <#
 .SYNOPSIS
-    Data Loss Prevention (DLP) Policies
+    Data loss prevention policies are enabled
 
 .DESCRIPTION
     Data Loss Prevention (DLP) policies protect sensitive information by monitoring, detecting, and preventing the sharing of confidential data across Microsoft 365 workloads including Exchange Online, SharePoint Online, OneDrive, and Microsoft Teams.
@@ -16,13 +16,14 @@ function Test-Assessment-35030 {
     [ZtTest(
         Category = 'Data Loss Prevention (DLP)',
         ImplementationCost = 'Medium',
-        MinimumLicense = ('Microsoft 365 E3'),
+        Service = ('SecurityCompliance'),
+        CompatibleLicense = ('EXCHANGE_S_ENTERPRISE'),
         Pillar = 'Data',
         RiskLevel = 'High',
         SfiPillar = 'Protect tenants and production systems',
         TenantType = ('Workforce'),
         TestId = 35030,
-        Title = 'DLP Policies Enabled',
+        Title = 'Data loss prevention policies are enabled',
         UserImpact = 'Medium'
     )]
     [CmdletBinding()]

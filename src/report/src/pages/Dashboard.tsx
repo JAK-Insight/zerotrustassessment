@@ -1151,7 +1151,8 @@ export default function Dashboard() {
                     ) : null}
 
                     {/* Device compliance chart */}
-                    {(reportData.TenantInfo?.DeviceOverview?.ManagedDevices?.totalCount || 0) > 0 &&
+                    {reportData.TenantInfo?.DeviceOverview?.ManagedDevices &&
+                        reportData.TenantInfo?.DeviceOverview?.DeviceCompliance &&
                         (reportData.TenantInfo?.DeviceOverview?.DeviceCompliance?.compliantDeviceCount || 0) +
                         (reportData.TenantInfo?.DeviceOverview?.DeviceCompliance?.nonCompliantDeviceCount || 0) > 0 && (
                             <Card className="w-full">
@@ -1247,7 +1248,8 @@ export default function Dashboard() {
                         )}
 
                     {/* Corporate vs Personal chart */}
-                    {(reportData.TenantInfo?.DeviceOverview?.ManagedDevices?.totalCount || 0) > 0 &&
+                    {reportData.TenantInfo?.DeviceOverview?.ManagedDevices &&
+                        reportData.TenantInfo?.DeviceOverview?.DeviceOwnership &&
                         (reportData.TenantInfo?.DeviceOverview?.DeviceOwnership?.corporateCount || 0) +
                         (reportData.TenantInfo?.DeviceOverview?.DeviceOwnership?.personalCount || 0) > 0 && (
                             <Card className="w-full">

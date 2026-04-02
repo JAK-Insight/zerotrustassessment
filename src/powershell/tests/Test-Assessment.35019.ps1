@@ -1,6 +1,6 @@
-<#
+﻿<#
 .SYNOPSIS
-    Auto-Labeling Policies Configured (All Workloads)
+    Auto-labeling policies are configured for all workloads
 
 .DESCRIPTION
     When auto-labeling policies are not configured, organizations cannot automatically classify content based on sensitive information types, patterns, or conditions. This creates a significant compliance and security gap because sensitive data relies entirely on manual user action for classification. Auto-labeling policies intelligently classify content across all workloads (Outlook emails, Exchange mailboxes, SharePoint sites, OneDrive accounts, Teams channels, and Power BI) based on content inspection. Configuring at least one auto-labeling policy for the organization's most sensitive data types is the foundation for consistent automated classification.
@@ -13,16 +13,17 @@
 
 function Test-Assessment-35019 {
     [ZtTest(
-        Category = 'Information Protection',
-        ImplementationCost = 'Medium',
-        MinimumLicense = ('Microsoft 365 E5'),
-        Pillar = 'Data',
-        RiskLevel = 'High',
-        SfiPillar = '',
-        TenantType = ('Workforce'),
-        TestId = 35019,
-        Title = 'Auto-Labeling Policies Configured (All Workloads)',
-        UserImpact = 'Low'
+    	Category = 'Information Protection',
+    	ImplementationCost = 'Medium',
+    	CompatibleLicense = ('EXCHANGE_S_ENTERPRISE'),
+    	Service = ('SecurityCompliance'),
+    	Pillar = 'Data',
+    	RiskLevel = 'High',
+    	SfiPillar = 'Protect tenants and production systems',
+    	TenantType = ('Workforce'),
+    	TestId = 35019,
+    	Title = 'Auto-labeling policies are configured for all Microsoft 365 workloads',
+    	UserImpact = 'Low'
     )]
     [CmdletBinding()]
     param()

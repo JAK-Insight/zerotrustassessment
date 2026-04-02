@@ -9,16 +9,17 @@
 
 function Test-Assessment-25415 {
     [ZtTest(
-        Category = 'Global Secure Access',
-        ImplementationCost = 'Medium',
-        MinimumLicense = ('Entra_Premium_Internet_Access'),
-        Pillar = 'Network',
-        RiskLevel = 'High',
-        SfiPillar = 'Protect networks',
-        TenantType = ('Workforce'),
-        TestId = 25415,
-        Title = 'Enterprise generative AI applications are protected from prompt injection attacks through AI Gateway',
-        UserImpact = 'Low'
+    	Category = 'Global Secure Access',
+    	ImplementationCost = 'Medium',
+    	MinimumLicense = ('Entra_Premium_Internet_Access'),
+    	CompatibleLicense = ('Entra_Premium_Internet_Access'),
+    	Pillar = 'Network',
+    	RiskLevel = 'High',
+    	SfiPillar = 'Protect networks',
+    	TenantType = ('Workforce'),
+    	TestId = 25415,
+    	Title = 'AI Gateway protects enterprise generative AI applications from prompt injection attacks',
+    	UserImpact = 'Low'
     )]
     [CmdletBinding()]
     param()

@@ -1,6 +1,6 @@
-<#
+﻿<#
 .SYNOPSIS
-    Azure RMS Licensing Enabled
+    Azure Rights Management licensing is enabled
 
 .DESCRIPTION
     Azure Rights Management Service (Azure RMS) is the foundational encryption and access control technology underlying Microsoft Information Protection.
@@ -17,16 +17,17 @@
 
 function Test-Assessment-35024 {
     [ZtTest(
-        Category = 'Rights Management Service (RMS)',
-        ImplementationCost = 'Low',
-        MinimumLicense = ('Microsoft 365 E3'),
-        Pillar = 'Data',
-        RiskLevel = 'High',
-        SfiPillar = 'Protect tenants and production systems',
-        TenantType = ('Workforce'),
-        TestId = 35024,
-        Title = 'Azure RMS Licensing Enabled',
-        UserImpact = 'High'
+    	Category = 'Rights Management Service',
+    	ImplementationCost = 'Low',
+    	MinimumLicense = ('Microsoft 365 E3'),
+    	Service = ('ExchangeOnline'),
+    	Pillar = 'Data',
+    	RiskLevel = 'High',
+    	SfiPillar = 'Protect tenants and production systems',
+    	TenantType = ('Workforce'),
+    	TestId = 35024,
+    	Title = 'Azure Rights Management service is enabled',
+    	UserImpact = 'High'
     )]
     [CmdletBinding()]
     param()

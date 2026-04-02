@@ -31,29 +31,31 @@ Function Get-ZtGraphScope {
     # /zerotrustassessment/website/docs/sections/permissions.md
 
     # Default read-only scopes required for the assessment.
-    $scopes = @( # IMPORTANT: Read note above before adding any new scopes.
-        'AgentIdentity.Read.All',
-        'Application.Read.All',
-        'AuditLog.Read.All',
-        'CrossTenantInformation.ReadBasic.All',
-        'DeviceManagementApps.Read.All',
-        'DeviceManagementConfiguration.Read.All',
-        'DeviceManagementManagedDevices.Read.All',
-        'DeviceManagementRBAC.Read.All',
-        'DeviceManagementServiceConfig.Read.All',
-        'Directory.Read.All',
-        'DirectoryRecommendations.Read.All',
-        'EntitlementManagement.Read.All',
-        'IdentityRiskEvent.Read.All',
-        'IdentityRiskyUser.Read.All',
-        'Policy.Read.All',
-        'Policy.Read.ConditionalAccess',
-        'Policy.Read.PermissionGrant',
-        'PrivilegedAccess.Read.AzureAD',
-        'Reports.Read.All',
-        'RoleManagement.Read.All',
-        'RoleManagement.Read.Directory',
+    $scopes = @( #IMPORTANT: Read note above before adding any new scopes.
+        'AgentIdentity.Read.All'
+        'Application.Read.All'
+        'AuditLog.Read.All'
+        'CrossTenantInformation.ReadBasic.All'
+        'DeviceManagementApps.Read.All'
+        'DeviceManagementConfiguration.Read.All'
+        'DeviceManagementManagedDevices.Read.All'
+        'DeviceManagementRBAC.Read.All'
+        'DeviceManagementServiceConfig.Read.All'
+        'Directory.Read.All'
+        'DirectoryRecommendations.Read.All'
+        'EntitlementManagement.Read.All'
+        'IdentityRiskEvent.Read.All'
+        'IdentityRiskyUser.Read.All'
+        'Policy.Read.All'
+        'Policy.Read.ConditionalAccess'
+        'Policy.Read.PermissionGrant'
+        'PrivilegedAccess.Read.AzureAD'
+        'Reports.Read.All'
+        'RoleManagement.Read.All'
+        'RoleManagement.Read.Directory'
         'UserAuthenticationMethod.Read.All'
+        'NetworkAccess.Read.All'
+        'IdentityRiskyServicePrincipal.Read.All'
     )
 
     $scopes | Sort-Object -Unique

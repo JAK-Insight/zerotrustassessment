@@ -36,29 +36,29 @@ function Get-ZtAssessmentResults {
 		}
 	}
 
-function Get-TestResultSummary {
-    [CmdletBinding()]
-    param (
-        $TestResults,
-        $PreviewEnabled
-    )
-    $summary = [PSCustomObject]@{
-        IdentityPassed = @($TestResults).Where{ $_.TestPillar -eq 'Identity' -and $_.TestStatus -eq 'Passed' }.Count
-        IdentityTotal  = @($TestResults).Where{ $_.TestPillar -eq 'Identity' -and $_.TestStatus -notin 'Skipped', 'Planned' }.Count
-        DevicesPassed  = @($TestResults).Where{ $_.TestPillar -eq 'Devices' -and $_.TestStatus -eq 'Passed' }.Count
-        DevicesTotal   = @($TestResults).Where{ $_.TestPillar -eq 'Devices' -and $_.TestStatus -notin 'Skipped', 'Planned' }.Count
-        DataPassed     = @($TestResults).Where{ $_.TestPillar -eq 'Data' -and $_.TestStatus -eq 'Passed' }.Count
-        DataTotal      = @($TestResults).Where{ $_.TestPillar -eq 'Data' -and $_.TestStatus -notin 'Skipped', 'Planned' }.Count
-        NetworkPassed        = @($TestResults).Where{ $_.TestPillar -eq 'Network' -and $_.TestStatus -eq 'Passed' }.Count
-        NetworkTotal         = @($TestResults).Where{ $_.TestPillar -eq 'Network' -and $_.TestStatus -notin 'Skipped', 'Planned' }.Count
-        InfrastructurePassed = @($TestResults).Where{ $_.TestPillar -eq 'Infrastructure' -and $_.TestStatus -eq 'Passed' }.Count
-        InfrastructureTotal  = @($TestResults).Where{ $_.TestPillar -eq 'Infrastructure' -and $_.TestStatus -notin 'Skipped', 'Planned' }.Count
-        PowerPlatformPassed  = @($TestResults).Where{ $_.TestPillar -eq 'PowerPlatform' -and $_.TestStatus -eq 'Passed' }.Count
-        PowerPlatformTotal   = @($TestResults).Where{ $_.TestPillar -eq 'PowerPlatform' -and $_.TestStatus -notin 'Skipped', 'Planned' }.Count
-    }
+	function Get-TestResultSummary {
+		[CmdletBinding()]
+		param (
+			$TestResults,
+			$PreviewEnabled
+		)
+		$summary = [PSCustomObject]@{
+			IdentityPassed       = @($TestResults).Where{ $_.TestPillar -eq 'Identity' -and $_.TestStatus -eq 'Passed' }.Count
+			IdentityTotal        = @($TestResults).Where{ $_.TestPillar -eq 'Identity' -and $_.TestStatus -notin 'Skipped', 'Planned' }.Count
+			DevicesPassed        = @($TestResults).Where{ $_.TestPillar -eq 'Devices' -and $_.TestStatus -eq 'Passed' }.Count
+			DevicesTotal         = @($TestResults).Where{ $_.TestPillar -eq 'Devices' -and $_.TestStatus -notin 'Skipped', 'Planned' }.Count
+			NetworkPassed        = @($TestResults).Where{ $_.TestPillar -eq 'Network' -and $_.TestStatus -eq 'Passed' }.Count
+			NetworkTotal         = @($TestResults).Where{ $_.TestPillar -eq 'Network' -and $_.TestStatus -notin 'Skipped', 'Planned' }.Count
+			DataPassed           = @($TestResults).Where{ $_.TestPillar -eq 'Data' -and $_.TestStatus -eq 'Passed' }.Count
+			DataTotal            = @($TestResults).Where{ $_.TestPillar -eq 'Data' -and $_.TestStatus -notin 'Skipped', 'Planned' }.Count
+			InfrastructurePassed = @($TestResults).Where{ $_.TestPillar -eq 'Infrastructure' -and $_.TestStatus -eq 'Passed' }.Count
+			InfrastructureTotal  = @($TestResults).Where{ $_.TestPillar -eq 'Infrastructure' -and $_.TestStatus -notin 'Skipped', 'Planned' }.Count
+			PowerPlatformPassed  = @($TestResults).Where{ $_.TestPillar -eq 'PowerPlatform' -and $_.TestStatus -eq 'Passed' }.Count
+			PowerPlatformTotal   = @($TestResults).Where{ $_.TestPillar -eq 'PowerPlatform' -and $_.TestStatus -notin 'Skipped', 'Planned' }.Count
+		}
 
-    return $summary
-}
+		return $summary
+	}
 
 
 	function Get-Organization {

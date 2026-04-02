@@ -1,6 +1,6 @@
 <#
 .SYNOPSIS
-    Validates that default labels are configured for sensitivity label policies.
+    A default sensitivity label is configured in label policies
 
 .DESCRIPTION
     This test checks if sensitivity label policies have default labels configured
@@ -18,13 +18,14 @@ function Test-Assessment-35017 {
     [ZtTest(
         Category = 'Information Protection',
         ImplementationCost = 'Low',
+        Service = ('SecurityCompliance'),
         MinimumLicense = ('Microsoft 365 E3'),
         Pillar = 'Data',
         RiskLevel = 'Medium',
         SfiPillar = 'Protect tenants and production systems',
         TenantType = ('Workforce'),
         TestId = 35017,
-        Title = 'Default label configured for sensitivity labels',
+        Title = 'A default sensitivity label is configured in label policies',
         UserImpact = 'Medium'
     )]
     [CmdletBinding()]
@@ -41,7 +42,7 @@ function Test-Assessment-35017 {
 
     try {
         # Q1: Retrieve all enabled sensitivity label policies to assess default label configuration
-        $enabledPolicies = Get-LabelPolicy -ErrorAction Stop | Where-Object { $_.Enabled -eq $true }
+        $enabledPolicies = Get-LabelPolicy -WarningAction SilentlyContinue -ErrorAction Stop | Where-Object { $_.Enabled -eq $true }
     }
     catch {
         $errorMsg = $_

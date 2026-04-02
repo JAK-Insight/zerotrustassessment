@@ -1,6 +1,6 @@
-<#
+﻿<#
 .SYNOPSIS
-    Global Scope Label Count
+    Globally published sensitivity labels don't exceed the recommended maximum
 
 .DESCRIPTION
     Sensitivity label policies control which labels are available to users and can be scoped to specific users, groups, or the entire organization. Publishing too many labels globally creates confusion and decision paralysis for end users. Microsoft recommends publishing no more than 25 labels in globally-scoped policies to maintain usability and reduce misclassification.
@@ -13,16 +13,17 @@
 
 function Test-Assessment-35015 {
     [ZtTest(
-        Category = 'sensitivity-labels',
-        ImplementationCost = 'Medium',
-        MinimumLicense = ('Microsoft 365 E3'),
-        Pillar = 'Data',
-        RiskLevel = 'Medium',
-        SfiPillar = '',
-        TenantType = ('Workforce'),
-        TestId = 35015,
-        Title = 'Global Scope Label Count',
-        UserImpact = 'High'
+    	Category = 'sensitivity-labels',
+    	ImplementationCost = 'Medium',
+    	MinimumLicense = ('Microsoft 365 E3'),
+    	Service = ('SecurityCompliance'),
+    	Pillar = 'Data',
+    	RiskLevel = 'Medium',
+    	SfiPillar = 'Protect tenants and production systems',
+    	TenantType = ('Workforce'),
+    	TestId = 35015,
+    	Title = 'Globally published sensitivity labels don''t exceed the recommended maximum',
+    	UserImpact = 'High'
     )]
     [CmdletBinding()]
     param()
@@ -39,7 +40,7 @@ function Test-Assessment-35015 {
 
     try {
         # Get all enabled label policies
-        $labelPolicies = Get-LabelPolicy -ErrorAction Stop | Where-Object { $_.Enabled -eq $true }
+        $labelPolicies = Get-LabelPolicy -WarningAction SilentlyContinue -ErrorAction Stop | Where-Object { $_.Enabled -eq $true }
     }
     catch {
         $errorMsg = $_

@@ -1,6 +1,6 @@
 <#
 .SYNOPSIS
-    Validates that at least one encryption-enabled sensitivity label is configured.
+    Sensitivity labels with encryption are configured
 
 .DESCRIPTION
     This test checks if encryption-enabled sensitivity labels exist by:
@@ -19,13 +19,14 @@ function Test-Assessment-35013 {
     [ZtTest(
         Category = 'Sensitivity Labels Configuration',
         ImplementationCost = 'Medium',
+        Service = ('SecurityCompliance'),
         MinimumLicense = 'Microsoft 365 E3',
         Pillar = 'Data',
         RiskLevel = 'High',
         SfiPillar = 'Protect tenants and production systems',
         TenantType = ('Workforce', 'External'),
         TestId = 35013,
-        Title = 'Encryption-Enabled Labels',
+        Title = 'Sensitivity labels with encryption are configured',
         UserImpact = 'High'
     )]
     [CmdletBinding()]

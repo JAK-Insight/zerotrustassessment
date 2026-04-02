@@ -1,6 +1,6 @@
-<#
+﻿<#
 .SYNOPSIS
-    Total Sensitivity Labels Configured
+    Sensitivity labels are configured
 
 .DESCRIPTION
     This test checks if there is at least one sensitivity label configured in the tenant.
@@ -14,16 +14,17 @@
 
 function Test-Assessment-35003 {
     [ZtTest(
-        Category = 'sensitivity-labels',
-        ImplementationCost = 'Medium',
-        MinimumLicense = ('Microsoft 365 E3'),
-        Pillar = 'Data',
-        RiskLevel = 'High',
-        SfiPillar = '',
-        TenantType = ('Workforce'),
-        TestId = 35003,
-        Title = 'Total Sensitivity Labels Configured',
-        UserImpact = 'Low'
+    	Category = 'sensitivity-labels',
+    	ImplementationCost = 'Medium',
+    	MinimumLicense = ('Microsoft 365 E3'),
+    	Service = ('SecurityCompliance'),
+    	Pillar = 'Data',
+    	RiskLevel = 'High',
+    	SfiPillar = 'Protect tenants and production systems',
+    	TenantType = ('Workforce'),
+    	TestId = 35003,
+    	Title = 'Sensitivity labels are configured',
+    	UserImpact = 'Low'
     )]
     [CmdletBinding()]
     param()

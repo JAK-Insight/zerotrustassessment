@@ -1,6 +1,6 @@
 <#
 .SYNOPSIS
-    Validates that container labels are configured for Teams, Groups, and Sites.
+    Container labels are configured for Teams, groups, and sites
 
 .DESCRIPTION
     This test evaluates sensitivity label configuration to ensure container labels
@@ -19,13 +19,14 @@ function Test-Assessment-35012 {
     [ZtTest(
         Category = 'Sensitivity Labels Configuration',
         ImplementationCost = 'Medium',
+        Service = ('SecurityCompliance'),
         MinimumLicense = ('Microsoft 365 E5'),
         Pillar = 'Data',
         RiskLevel = 'Medium',
         SfiPillar = 'Protect tenants and production systems',
         TenantType = 'Workforce',
         TestId = 35012,
-        Title = 'Container labels are configured for Teams, Groups, and Sites',
+        Title = 'Container labels are configured for Teams, groups, and sites',
         UserImpact = 'High'
     )]
     [CmdletBinding()]

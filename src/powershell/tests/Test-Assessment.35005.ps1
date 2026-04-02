@@ -1,6 +1,6 @@
-<#
+﻿<#
 .SYNOPSIS
-    Sensitivity Labels Enabled in SharePoint Online
+    Sensitivity labels are enabled in SharePoint Online
 
 .DESCRIPTION
     SharePoint Online and OneDrive for Business require explicit enablement of sensitivity label integration to allow users to apply Microsoft Information Protection labels to files stored in these services. When EnableAIPIntegration is disabled, organizations lose the ability to classify and protect documents at rest in their primary collaboration platform. The contant is opaque to SharePoint capabilities and Purview services like eDiscovery is not available.
@@ -13,16 +13,17 @@
 
 function Test-Assessment-35005 {
     [ZtTest(
-        Category = 'SharePoint Online',
-        ImplementationCost = 'Low',
-        MinimumLicense = ('MIP_P1'),
-        Pillar = 'Data',
-        RiskLevel = 'High',
-        SfiPillar = '',
-        TenantType = ('Workforce'),
-        TestId = 35005,
-        Title = 'Sensitivity Labels Enabled in SharePoint Online',
-        UserImpact = 'Low'
+    	Category = 'SharePoint Online',
+    	ImplementationCost = 'Low',
+    	MinimumLicense = ('MIP_P1'),
+    	Service = ('SharePointOnline'),
+    	Pillar = 'Data',
+    	RiskLevel = 'High',
+    	SfiPillar = 'Protect tenants and production systems',
+    	TenantType = ('Workforce'),
+    	TestId = 35005,
+    	Title = 'Sensitivity labels are enabled for SharePoint and OneDrive',
+    	UserImpact = 'Low'
     )]
     [CmdletBinding()]
     param()

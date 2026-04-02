@@ -14,16 +14,17 @@
 
 function Test-Assessment-25409 {
     [ZtTest(
-        Category = 'Global Secure Access',
-        ImplementationCost = 'Medium',
-        MinimumLicense = ('Entra_Premium_Internet_Access'),
-        Pillar = 'Network',
-        RiskLevel = 'Medium',
-        SfiPillar = 'Protect networks',
-        TenantType = ('Workforce', 'External'),
-        TestId = 25409,
-        Title = 'Global Secure Access Web content filtering controls internet access based on website categories',
-        UserImpact = 'Medium'
+    	Category = 'Global Secure Access',
+    	ImplementationCost = 'Medium',
+    	MinimumLicense = ('Entra_Premium_Internet_Access'),
+    	CompatibleLicense = ('Entra_Premium_Internet_Access'),
+    	Pillar = 'Network',
+    	RiskLevel = 'Medium',
+    	SfiPillar = 'Protect networks',
+    	TenantType = ('Workforce','External'),
+    	TestId = 25409,
+    	Title = 'Web content filtering uses category-based rules',
+    	UserImpact = 'Medium'
     )]
     [CmdletBinding()]
     param()

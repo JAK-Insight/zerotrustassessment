@@ -15,16 +15,17 @@
 
 function Test-Assessment-25422 {
     [ZtTest(
-        Category = 'Global Secure Access',
-        ImplementationCost = 'Low',
-        MinimumLicense = ('Entra_Premium_Internet_Access','Entra_Premium_Private_Access'),
-        Pillar = 'Network',
-        RiskLevel = 'Medium',
-        SfiPillar = 'Monitor and detect cyberthreats',
-        TenantType = ('Workforce', 'External'),
-        TestId = '25422',
-        Title = 'GSA Deployment logs are populated and reviewed',
-        UserImpact = 'Low'
+    	Category = 'Global Secure Access',
+    	ImplementationCost = 'Low',
+    	MinimumLicense = ('Entra_Premium_Internet_Access','Entra_Premium_Private_Access'),
+    	CompatibleLicense = ('Entra_Premium_Internet_Access','Entra_Premium_Private_Access'),
+    	Pillar = 'Network',
+    	RiskLevel = 'Medium',
+    	SfiPillar = 'Monitor and detect cyberthreats',
+    	TenantType = ('Workforce','External'),
+    	TestId = 25422,
+    	Title = 'Global Secure Access deployment logs are populated and reviewed',
+    	UserImpact = 'Low'
     )]
     [CmdletBinding()]
     param()

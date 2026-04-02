@@ -1,186 +1,370 @@
 <#
 .SYNOPSIS
- DLP policies are configured for Exchange Online
+    Validates that Communication Compliance rules are configured to monitor enterprise AI app interactions.
+
+.DESCRIPTION
+    This test verifies that Collection Policies are configured for data ingestion, Communication Compliance
+    rules targeting enterprise AI apps (ConnectedAIApp and/or UnifiedGenAIWorkloads) are properly configured,
+    and at least one enabled policy with ReviewMailbox exists for alert processing.
+
+.NOTES
+    Test ID: 35040
+    Category: Data Security Posture Management
+    Pillar: Data
+    Required Module: ExchangeOnlineManagement
+    Required Connection: Security & Compliance PowerShell
 #>
+
 function Test-Assessment-35040 {
     [ZtTest(
-        Category = 'Data Loss Prevention (DLP)',
+        Category = 'Data Security Posture Management',
         ImplementationCost = 'Medium',
-        MinimumLicense = ('Microsoft 365 E3'),
+        Service = ('SecurityCompliance'),
+        CompatibleLicense = ('EXCHANGE_S_ENTERPRISE'),
         Pillar = 'Data',
         RiskLevel = 'High',
         SfiPillar = 'Protect tenants and production systems',
         TenantType = ('Workforce'),
         TestId = 35040,
-        Title = 'DLP policies are configured for Exchange Online',
+        Title = 'Communication compliance monitoring is configured for enterprise AI tools',
         UserImpact = 'Medium'
     )]
     [CmdletBinding()]
     param()
 
+    #region Data Collection
     Write-PSFMessage '🟦 Start' -Tag Test -Level VeryVerbose
 
-    $testId   = 35040
-    $title    = 'DLP policies are configured for Exchange Online'
-    $activity = 'Checking DLP policy coverage for Exchange Online'
-    $mdPath   = Join-Path -Path $PSScriptRoot -ChildPath ("Test-Assessment.{0}.md" -f $testId)
+    $activity = 'Checking Communication Compliance for Enterprise AI Apps'
 
-    #region Data Collection
-    Write-ZtProgress -Activity $activity -Status 'Getting DLP policies'
+    # Q1: Verify Collection Policies are configured for enterprise AI app data ingestion
+    Write-ZtProgress -Activity $activity -Status 'Checking Collection Policies'
 
+    $collectionPolicies = @()
     $errorMsg = $null
-    $dlpPolicies = @()
 
-    if (-not (Get-Command Get-DlpCompliancePolicy -ErrorAction SilentlyContinue)) {
-        $errorMsg = "Get-DlpCompliancePolicy cmdlet not found. Ensure Security & Compliance (IPPS) session is connected."
-        Write-PSFMessage $errorMsg -Level Warning
+    try {
+        $featureConfig = Get-FeatureConfiguration -FeatureScenario KnowYourData -ErrorAction Stop
+
+        if ($featureConfig) {
+            foreach ($config in $featureConfig) {
+                $activities = @()
+                $enforcementPlanes = @()
+
+                if ($config.ScenarioConfig) {
+                    try {
+                        $scenarioData = $config.ScenarioConfig | ConvertFrom-Json -ErrorAction Stop
+                        if ($scenarioData.Activities) {
+                            $activities = $scenarioData.Activities
+                        }
+                        if ($scenarioData.EnforcementPlanes) {
+                            $enforcementPlanes = $scenarioData.EnforcementPlanes
+                        }
+                    }
+                    catch {
+                        Write-PSFMessage "Error parsing ScenarioConfig JSON: $_" -Level Warning
+                    }
+                }
+
+                $collectionPolicies += [PSCustomObject]@{
+                    PolicyName        = $config.Name
+                    Enabled           = $config.Enabled
+                    Mode              = $config.Mode
+                    Workload          = $config.Workload
+                    Activities        = $activities
+                    EnforcementPlanes = $enforcementPlanes
+                    CreatedBy         = $config.CreatedBy
+                    ModifiedTime      = $config.ModificationTimeUtc.ToString("yyyy-MM-ddTHH:mm:ss")
+                    PolicyCategory    = "ApplicableToAI"
+                }
+            }
+        }
     }
-    else {
+    catch {
+        $errorMsg = $_
+        Write-PSFMessage "Failed to retrieve Collection Policies: $_" -Tag Test -Level Warning
+    }
+
+    # Q2: Get all Communication Compliance rules and identify those targeting enterprise AI apps
+    Write-ZtProgress -Activity $activity -Status 'Analyzing Communication Compliance rules'
+
+    $enterpriseAIRules = @()
+
+    if ($collectionPolicies -and -not $errorMsg) {
         try {
-            $dlpPolicies = @(Get-DlpCompliancePolicy -ErrorAction Stop)
+            $allRules = Get-SupervisoryReviewRule -IncludeRuleXml -ErrorAction Stop
+            $allReviewPolicy = Get-SupervisoryReviewPolicyV2 -ErrorAction Stop
+
+            $policyMap = @{}
+            if ($allReviewPolicy) {
+                $allReviewPolicy | ForEach-Object { $policyMap[$_.Guid] = $_.Name }
+            }
+
+            foreach ($rule in $allRules) {
+                if (-not [string]::IsNullOrWhiteSpace($rule.RuleXml)) {
+                    try {
+                        # Wrap RuleXml in a root element to handle multiple rule elements
+                        $wrappedXml = "<root>$($rule.RuleXml)</root>"
+                        $ruleXml = [xml]$wrappedXml
+                        $hasEnterpriseAIConfig = $false
+                        $detectedWorkloads = @()
+                        $detectedUnifiedGenAIWorkloads = @()
+
+                        # Check for ConnectedAIApp and UnifiedGenAIWorkloads in JSON value elements
+                        if ($ruleXml.root) {
+                            $valueElements = $ruleXml.root.GetElementsByTagName('value')
+                            foreach ($valueElement in $valueElements) {
+                                $rawValue = $valueElement.'#text'
+                                if (-not [string]::IsNullOrWhiteSpace($rawValue)) {
+                                    try {
+                                        $jsonText = $rawValue.Trim()
+
+                                        # We only need object/array JSON payloads
+                                        if ($jsonText -notmatch '^[\{\[]') {
+                                            continue
+                                        }
+
+                                        $jsonData = $jsonText | ConvertFrom-Json -ErrorAction Stop
+
+                                        # Check for ConnectedAIApp in Workloads
+                                        if ($jsonData.Workloads -and $jsonData.Workloads -contains 'ConnectedAIApp') {
+                                            $hasEnterpriseAIConfig = $true
+                                            $detectedWorkloads = $jsonData.Workloads
+                                        }
+
+                                        # Check for "ChatGPT.Enterprise", "EntraApp", "AzureAI" keywords in UnifiedGenAIWorkloads
+                                        $targetWorkloads = @('ChatGPT.Enterprise', 'EntraApp', 'AzureAI')
+                                        if ($jsonData.UnifiedGenAIWorkloads -and ($jsonData.UnifiedGenAIWorkloads | Where-Object { $targetWorkloads -contains $_ })) {
+                                            $hasEnterpriseAIConfig = $true
+                                            $detectedUnifiedGenAIWorkloads = $jsonData.UnifiedGenAIWorkloads
+                                        }
+
+                                        if ($hasEnterpriseAIConfig) {
+                                            break
+                                        }
+                                    }
+                                    catch {
+                                        # Skip if JSON parsing fails
+                                    }
+                                }
+                            }
+                        }
+
+                        if ($hasEnterpriseAIConfig) {
+                            # Extract rule names from RuleXml structure
+                            $ruleNames = @()
+                            $ruleElements = $ruleXml.root.GetElementsByTagName('rule')
+                            foreach ($ruleElement in $ruleElements) {
+                                if ($ruleElement.name) {
+                                    $ruleNames += $ruleElement.name
+                                }
+                            }
+                            $ruleNameDisplay = if ($ruleNames.Count -gt 0) { $ruleNames -join ', ' } else { $rule.Name }
+
+                            # Lookup policy name from $allReviewPolicy using Policy ID
+                            $policyId = $rule.Policy
+                            $policyName = if ($policyMap.ContainsKey($policyId)) { $policyMap[$policyId] } else { 'Unknown' }
+
+                            $enterpriseAIRules += [PSCustomObject]@{
+                                RuleName             = $ruleNameDisplay
+                                PolicyId             = $policyId
+                                PolicyName           = $policyName
+                                Workloads            = $detectedWorkloads
+                                UnifiedGenAIWorkloads = $detectedUnifiedGenAIWorkloads
+                            }
+                        }
+                    }
+                    catch {
+                        Write-PSFMessage "Error parsing RuleXml for rule '$($rule.Name)': $_" -Level Warning
+                    }
+                }
+            }
         }
         catch {
-            $errorMsg = $_.Exception.Message
-            Write-PSFMessage ("Error querying DLP policies: {0}" -f $_) -Level Error
+            Write-PSFMessage "Failed to retrieve supervisory review rules: $_" -Tag Test -Level Warning
         }
     }
+
+    # Q3: Get enabled Communication Compliance policies with ReviewMailbox configured
+    Write-ZtProgress -Activity $activity -Status 'Checking enabled policies'
+
+    $enabledPoliciesWithReviewMailbox = @()
+
+    if ($enterpriseAIRules -and -not $errorMsg) {
+        $enabledPoliciesWithReviewMailbox = $allReviewPolicy | Where-Object {
+            $_.Enabled -eq $true -and $null -ne $_.ReviewMailbox
+        }
+    }
+
     #endregion Data Collection
 
     #region Assessment Logic
-    $exchangePolicies           = New-Object System.Collections.Generic.List[object]
-    $exchangeEnabledPolicies    = New-Object System.Collections.Generic.List[object]
-    $exchangeSimulationPolicies = New-Object System.Collections.Generic.List[object]
-
     $passed = $false
     $customStatus = $null
-    $leadText = ""
+
+    # Evaluation logic:
+    # - Investigate if there was an error during data collection
+    # - Fail if no Collection Policies are configured or policies are disabled
+    # - Fail if no Communication Compliance rules target enterprise AI apps
+    # - Fail if no enabled policies with ReviewMailbox exist
+    # - Pass if Collection Policies are configured, rules target enterprise AI apps, and at least one enabled policy with ReviewMailbox exists
 
     if ($errorMsg) {
         $customStatus = 'Investigate'
-        $leadText = "⚠️ Unable to determine DLP policy coverage for Exchange Online due to permissions issues or query failure.`n`n**Details:** $errorMsg`n"
+        $testResultMarkdown = "⚠️ Unable to determine enterprise AI monitoring status due to error:`n`n$errorMsg`n`n%TestResult%"
     }
     else {
-        foreach ($policy in $dlpPolicies) {
-            if ($policy.ExchangeLocation -and @($policy.ExchangeLocation).Count -gt 0) {
-                $exchangePolicies.Add($policy)
+        $hasActiveCollectionPolicies = ($collectionPolicies | Where-Object { $_.Enabled -eq $true -and $_.Activities.Count -ge 1 }).Count -ge 1
+        $hasEnterpriseAIRules = $enterpriseAIRules.Count -ge 1
+        $hasEnabledPoliciesWithReviewMailbox = $enabledPoliciesWithReviewMailbox.Count -ge 1
 
-                switch ($policy.Mode) {
-                    'Enable' { $exchangeEnabledPolicies.Add($policy) }
-                    { $_ -in 'TestWithNotifications', 'TestWithoutNotifications' } { $exchangeSimulationPolicies.Add($policy) }
-                }
-            }
-        }
-
-        if ($exchangeEnabledPolicies.Count -gt 0) {
-            $passed = $true
-            $leadText = "✅ $($exchangeEnabledPolicies.Count) DLP policy(ies) are configured and actively enforcing on Exchange Online.`n"
-
-            if ($exchangeSimulationPolicies.Count -gt 0) {
-                $leadText += "⚠️ **Improvement opportunity:** $($exchangeSimulationPolicies.Count) additional policy(ies) are in simulation mode. Review match reports in https://purview.microsoft.com/datalossprevention/activityexplorer and consider promoting to enforcement.`n"
-            }
-        }
-        elseif ($exchangePolicies.Count -gt 0) {
+        if (-not $hasActiveCollectionPolicies) {
             $passed = $false
-            $leadText = "❌ $($exchangePolicies.Count) DLP policy(ies) include Exchange Online but none are in enforcement mode.`n"
-            $leadText += "Simulation mode detects sensitive content but **does not block or protect it**. Promote at least one policy to enforcement.`n"
+            $testResultMarkdown = "❌ No enabled collection policies found for data ingestion.`n`n%TestResult%"
+        }
+        elseif (-not $hasEnterpriseAIRules) {
+            $passed = $false
+            $testResultMarkdown = "❌ No Communication Compliance rules targeting enterprise AI apps were found.`n`n%TestResult%"
+        }
+        elseif (-not $hasEnabledPoliciesWithReviewMailbox) {
+            $passed = $false
+            $testResultMarkdown = "❌ No Communication Compliance policies are enabled with ReviewMailbox configured, creating a gap where enterprise AI data exposure and policy violations cannot be detected and investigated.`n`n%TestResult%"
         }
         else {
-            $passed = $false
-            $leadText = "❌ No DLP policies are configured that include Exchange Online as a protected location. Sensitive data can be sent via email without detection or prevention.`n"
+            $passed = $true
+            $testResultMarkdown = "✅ Collection Policies are configured for data ingestion, Communication Compliance rules are configured to target enterprise AI apps (ConnectedAIApp and/or UnifiedGenAIWorkloads identified in RuleXml), AND at least one Communication Compliance policy is ENABLED with a ReviewMailbox configured, enabling the organization to detect and investigate unauthorized data sharing and policy violations through enterprise AI interactions.`n`n%TestResult%"
         }
     }
+
     #endregion Assessment Logic
 
-    #region Evidence Markdown
-    $lines = New-Object System.Collections.Generic.List[string]
-    $lines.Add($leadText)
-    $lines.Add("")
+    #region Report Generation
+    $mdInfo = ''
+    if(-not $errorMsg){
 
-    if (-not $errorMsg) {
-        if ($exchangePolicies.Count -gt 0) {
-            $lines.Add("### [DLP Policies covering Exchange Online](https://purview.microsoft.com/datalossprevention/policies)")
-            $lines.Add("")
-            $lines.Add("Policy Name | Mode | Exchange Scope | Created")
-            $lines.Add(":---|:---|:---|:---")
+        # Portal Links
+        $tenantId = (Get-MgContext).TenantId
+        $collectionPoliciesLink = "https://purview.microsoft.com/cc/dataclassification/dataandactivitydiscovery?tid=$tenantId"
+        $compliancePoliciesLink = "https://purview.microsoft.com/cc/policies?tid=$tenantId"
 
-            $sorted = $exchangePolicies | Sort-Object @{
-                Expression = {
-                    switch ($_.Mode) {
-                        'Enable' { 0 }
-                        'TestWithNotifications' { 1 }
-                        'TestWithoutNotifications' { 2 }
-                        default { 3 }
-                    }
-                }
-            }, @{
-                Expression = { $_.Name }
+        # Build Collection Policies table rows
+        $collectionTableRows = ''
+        if ($collectionPolicies.Count -gt 0) {
+            foreach ($policy in $collectionPolicies | Sort-Object PolicyName) {
+                $enabledStatus = if ($policy.Enabled) { '✅ True' } else { '❌ False' }
+                $modeStatus = if ($policy.Mode -eq 'Enable') { '✅ Enable' } else { '❌ Disable' }
+                $activitiesDisplay = if ($policy.Activities.Count -gt 0) { ($policy.Activities -join ', ') } else { 'None' }
+                $enforcementDisplay = if ($policy.EnforcementPlanes.Count -gt 0) { ($policy.EnforcementPlanes -join ', ') } else { 'None' }
+                $modifiedDisplay = Get-FormattedDate -DateString $policy.ModifiedTime
+
+                $collectionTableRows += "| $($policy.PolicyName) | $enabledStatus | $modeStatus | $($policy.Workload) | $activitiesDisplay | $enforcementDisplay | $($policy.CreatedBy) | $modifiedDisplay | $($policy.PolicyCategory) |`n"
             }
-
-            foreach ($policy in $sorted) {
-                $policyName = Get-SafeMarkdown -Text $policy.Name
-
-                $icon = switch ($policy.Mode) {
-                    'Enable' { '✅' }
-                    'TestWithNotifications' { '🧪' }
-                    'TestWithoutNotifications' { '🧪' }
-                    default { '⚠️' }
-                }
-
-                $modeDisplay = switch ($policy.Mode) {
-                    'Enable' { 'Enforcing' }
-                    'TestWithNotifications' { 'Simulation (with tips)' }
-                    'TestWithoutNotifications' { 'Simulation (no tips)' }
-                    default { $policy.Mode }
-                }
-
-                $exchangeLoc = ($policy.ExchangeLocation | ForEach-Object {
-                    if ($_.Name) { $_.Name } else { $_.ToString() }
-                }) -join ', '
-
-                $exchangeLoc = if ([string]::IsNullOrWhiteSpace($exchangeLoc)) { 'All' } else { $exchangeLoc }
-                $exchangeLoc = Get-SafeMarkdown -Text $exchangeLoc
-
-                $created = Get-FormattedDate -Date $policy.WhenCreatedUTC
-
-                $lines.Add(("$icon $policyName | $modeDisplay | $exchangeLoc | $created"))
-            }
-
-            $lines.Add("")
-        }
-        elseif ($dlpPolicies.Count -gt 0) {
-            $lines.Add("### Note")
-            $lines.Add(("Your tenant has {0} DLP policy(ies), but none include Exchange Online as a protected location." -f $dlpPolicies.Count))
-            $lines.Add("")
         }
 
-        $lines.Add("### Summary")
-        $lines.Add("")
-        $lines.Add("Metric | Count")
-        $lines.Add(":---|---:")
-        $lines.Add(("Total DLP policies in tenant | {0}" -f $dlpPolicies.Count))
-        $lines.Add(("Policies covering Exchange Online | {0}" -f $exchangePolicies.Count))
-        $lines.Add(("✅ Enforcing | {0}" -f $exchangeEnabledPolicies.Count))
-        $lines.Add(("🧪 Simulation mode | {0}" -f $exchangeSimulationPolicies.Count))
+        # Build Enterprise AI Rules table rows
+        $rulesTableRows = ''
+        if ($enterpriseAIRules.Count -gt 0) {
+            foreach ($rule in $enterpriseAIRules | Sort-Object RuleName) {
+                $workloadsDisplay = if ($rule.Workloads.Count -gt 0) { $rule.Workloads -join ', ' } else { 'None' }
+                $unifiedGenAIDisplay = if ($rule.UnifiedGenAIWorkloads.Count -gt 0) { $rule.UnifiedGenAIWorkloads -join ', ' } else { 'None' }
+
+                $rulesTableRows += "| $($rule.RuleName) | $($rule.PolicyName) | $workloadsDisplay | $unifiedGenAIDisplay |`n"
+            }
+        }
+
+        # Build Enabled Policies table rows
+        $policiesTableRows = ''
+        if ($enabledPoliciesWithReviewMailbox.Count -gt 0) {
+            foreach ($policy in $enabledPoliciesWithReviewMailbox | Sort-Object Name) {
+                $enabledStatus = if ($policy.Enabled -eq $true) { '✅ True' } else { '❌ False' }
+                $reviewMailbox = if ($policy.ReviewMailbox) { "✅ $($policy.ReviewMailbox)" } else { '❌ Not configured' }
+
+                $policiesTableRows += "| $($policy.Name) | $enabledStatus | $reviewMailbox |`n"
+            }
+        }
+
+        # Build Collection Policies section
+        $collectionSection = ''
+        if ($collectionPolicies.Count -gt 0) {
+            $collectionSection = @"
+
+### [Data ingestion layer (Collection policies)]($collectionPoliciesLink)
+
+| Policy name | Enabled | Mode | Workload | Activities | Enforcement planes | Created by | Last modified | Policy category |
+| :---------- | :------ | :--- | :------- | :--------- | :----------------- | :--------- | :------------ | :-------------- |
+$collectionTableRows
+"@
+        }
+
+        # Build Enterprise AI Rules section
+        # Always show this section when Q2 ran (no error and collection policies exist)
+        $rulesSection = ''
+        if ($collectionPolicies.Count -gt 0) {
+            if ($enterpriseAIRules.Count -gt 0) {
+                $rulesSection = @"
+
+### [Communication Compliance rules targeting Enterprise AI Apps]($compliancePoliciesLink)
+
+| Rule name | Associated policy | Workloads | UnifiedGenAIWorkloads |
+| :-------- | :---------------- | :-------- | :-------------------- |
+$rulesTableRows
+"@
+        } else {
+            $rulesSection = @"
+
+### [Communication Compliance rules targeting Enterprise AI Apps]($compliancePoliciesLink)
+
+No Enterprise AI rules found.
+"@
+        }
     }
 
-    $mdInfo = ($lines -join "`n")
-    #endregion Evidence Markdown
+        # Build Enabled Policies section
+        $policiesSection = ''
+        if ($enabledPoliciesWithReviewMailbox.Count -gt 0) {
+            $policiesSection = @"
 
-    # Ensure the markdown description file exists (does not affect pass/fail)
-    if (-not (Test-Path $mdPath)) {
-        $customStatus = 'Investigate'
-        Write-PSFMessage ("Missing markdown file: {0}" -f $mdPath) -Level Warning
+### [Enabled policies with review mailbox]($compliancePoliciesLink)
+
+| Policy name | Enabled | Review mailbox |
+| :---------- | :------ | :------------- |
+$policiesTableRows
+"@
+    } else {
+            $policiesSection = @"
+
+### [Enabled policies with review mailbox]($compliancePoliciesLink)
+
+No enabled policies with review mailbox configured were found.
+"@
+        }
+
+        $formatTemplate = @'
+{0}{1}{2}
+
+**Summary:**
+- Collection Policies Configured: {3}
+- Enterprise AI Rules Detected (with ConnectedAIApp or UnifiedGenAIWorkloads): {4}
+- Policies Enabled with ReviewMailbox: {5}
+'@
+
+        $mdInfo = $formatTemplate -f $collectionSection, $rulesSection, $policiesSection, $collectionPolicies.Count, $enterpriseAIRules.Count, $enabledPoliciesWithReviewMailbox.Count
     }
+    # Replace placeholder with generated markdown
+    $testResultMarkdown = $testResultMarkdown -replace '%TestResult%', $mdInfo
 
-    #region Output
+    #endregion Report Generation
+
     $params = @{
-        TestId = "$testId"
-        Title  = $title
+        TestId = '35040'
+        Title  = 'Communication compliance monitoring is configured for enterprise AI tools'
         Status = $passed
-        Result = $mdInfo   # evidence block only; TestDescription carries the narrative
+        Result = $testResultMarkdown
     }
-    if ($null -ne $customStatus) { $params.CustomStatus = $customStatus }
+
+    if ($null -ne $customStatus) {
+        $params.CustomStatus = $customStatus
+    }
 
     Add-ZtTestResultDetail @params
-    #endregion Output
 }

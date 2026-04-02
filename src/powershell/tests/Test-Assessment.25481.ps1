@@ -12,16 +12,17 @@
 
 function Test-Assessment-25481 {
     [ZtTest(
-        Category = 'Global Secure Access',
-        ImplementationCost = 'Low',
-        MinimumLicense = ('Entra_Private_Access'),
-        Pillar = 'Network',
-        RiskLevel = 'High',
-        SfiPillar = 'Protect networks',
-        TenantType = ('Workforce','External'),
-        TestId = '25481',
-        Title = 'All Private Access applications have assigned users or groups',
-        UserImpact = 'Medium'
+    	Category = 'Global Secure Access',
+    	ImplementationCost = 'Low',
+    	MinimumLicense = ('Entra_Private_Access'),
+    	CompatibleLicense = ('Entra_Premium_Private_Access'),
+    	Pillar = 'Network',
+    	RiskLevel = 'High',
+    	SfiPillar = 'Protect networks',
+    	TenantType = ('Workforce','External'),
+    	TestId = 25481,
+    	Title = 'All Private Access apps have user or group assignments',
+    	UserImpact = 'Medium'
     )]
     [CmdletBinding()]
     param()

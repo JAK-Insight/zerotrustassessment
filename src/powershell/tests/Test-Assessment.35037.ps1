@@ -1,19 +1,20 @@
 <#
 .SYNOPSIS
-    Purview Audit Logging Enabled
+    Purview audit logging is enabled
 #>
 
 function Test-Assessment-35037 {
     [ZtTest(
         Category = 'Data Security Posture Management',
         ImplementationCost = 'Low',
+        Service = ('ExchangeOnline'),
         MinimumLicense = ('Microsoft 365 E3'),
         Pillar = 'Data',
         RiskLevel = 'High',
         SfiPillar = 'Protect tenants and production systems',
         TenantType = ('Workforce','External'),
         TestId = 35037,
-        Title = 'Purview audit logging enabled',
+        Title = 'Purview audit logging is enabled',
         UserImpact = 'Low'
     )]
     [CmdletBinding()]

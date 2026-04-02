@@ -4,8 +4,9 @@ on:
   push:
     branches:
       - main
-    # Review gh actions docs if you want to further define triggers, paths, etc
-    # https://docs.github.com/en/actions/using-workflows/workflow-syntax-for-github-actions#on
+    paths:
+      - 'src/react/**'
+  workflow_dispatch:
 
 jobs:
   build:
@@ -19,32 +20,27 @@ jobs:
         with:
           node-version: 18
           cache: npm
-
+          cache-dependency-path: src/react/package-lock.json
       - name: Install dependencies
-        working-directory: ./src/react/src
-        run: npm install
+        working-directory: ./src/react
+        run: npm ci
       - name: Build website
-        working-directory: ./src/react/src
+        working-directory: ./src/react
         run: npm run build
-      - name: Upload Build Artifact        
-        uses: actions/upload-pages-artifact@v4        
+      - name: Upload Build Artifact
+        uses: actions/upload-pages-artifact@v4
         with:
           path: ./src/react/build
 
   deploy:
     name: Deploy to GitHub Pages
     needs: build
-
-    # Grant GITHUB_TOKEN the permissions required to make a Pages deployment
     permissions:
-      pages: write # to deploy to Pages
-      id-token: write # to verify the deployment originates from an appropriate source
-
-    # Deploy to the github-pages environment
+      pages: write
+      id-token: write
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
-
     runs-on: ubuntu-latest
     steps:
       - name: Deploy to GitHub Pages

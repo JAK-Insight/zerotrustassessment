@@ -5,16 +5,17 @@
 
 function Test-Assessment-25407 {
     [ZtTest(
-        Category = 'Global Secure Access',
-        ImplementationCost = 'Medium',
-        MinimumLicense = ('Entra_Premium_Internet_Access'),
-        Pillar = 'Network',
-        RiskLevel = 'High',
-        SfiPillar = 'Protect networks',
-        TenantType = ('Workforce', 'External'),
-        TestId = 25407,
-        Title = 'Internet Access security policies are enforced through Conditional Access for user-aware protection',
-        UserImpact = 'Low'
+    	Category = 'Global Secure Access',
+    	ImplementationCost = 'Medium',
+    	MinimumLicense = ('Entra_Premium_Internet_Access'),
+    	CompatibleLicense = ('Entra_Premium_Internet_Access'),
+    	Pillar = 'Network',
+    	RiskLevel = 'High',
+    	SfiPillar = 'Protect networks',
+    	TenantType = ('Workforce','External'),
+    	TestId = 25407,
+    	Title = 'Web content filtering integrates with Conditional Access',
+    	UserImpact = 'Low'
     )]
     [CmdletBinding()]
     param()

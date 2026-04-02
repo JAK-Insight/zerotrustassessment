@@ -1,6 +1,6 @@
 <#
 .SYNOPSIS
-    Validates that Communication Compliance rules are configured to detect and monitor Copilot content.
+    Communication compliance monitoring is configured for Microsoft Copilot
 
 .DESCRIPTION
     This test verifies that Communication Compliance rules targeting Copilot interactions are properly
@@ -19,13 +19,14 @@ function Test-Assessment-35039 {
     [ZtTest(
         Category = 'Data Security Posture Management',
         ImplementationCost = 'Medium',
-        MinimumLicense = ('Microsoft 365 E5'),
+        Service = ('SecurityCompliance'),
+        CompatibleLicense = ('EXCHANGE_S_ENTERPRISE'),
         Pillar = 'Data',
         RiskLevel = 'High',
         SfiPillar = 'Protect tenants and production systems',
         TenantType = ('Workforce'),
         TestId = 35039,
-        Title = 'Copilot Communication Compliance Monitoring Configured',
+        Title = 'Communication compliance monitoring is configured for Microsoft Copilot',
         UserImpact = 'Medium'
     )]
     [CmdletBinding()]

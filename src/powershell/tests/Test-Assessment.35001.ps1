@@ -1,19 +1,20 @@
 <#
 .SYNOPSIS
-    Conditional Access RMS Exclusions
+    Conditional Access policies don't exclude Rights Management workloads
 #>
 
 function Test-Assessment-35001 {
     [ZtTest(
         Category = 'Entra',
         ImplementationCost = 'Low',
+        Service = ('Graph'),
         MinimumLicense = ('Microsoft 365 E5'),
         Pillar = 'Data',
         RiskLevel = 'High',
         SfiPillar = '',
         TenantType = ('Workforce','External'),
         TestId = 35001,
-        Title = 'Conditional Access RMS Exclusions',
+        Title = 'Conditional Access policies don''t exclude Rights Management workloads',
         UserImpact = 'Low'
     )]
     [CmdletBinding()]

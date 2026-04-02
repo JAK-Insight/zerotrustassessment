@@ -1,19 +1,20 @@
 <#
 .SYNOPSIS
-    Auto-Labeling Enforcement Mode Enabled
+    Auto-labeling policies are in enforcement mode
 #>
 
 function Test-Assessment-35020 {
     [ZtTest(
         Category = 'Information Protection',
         ImplementationCost = 'Low',
-        MinimumLicense = ('Microsoft 365 E5'),
+        Service = ('SecurityCompliance'),
+        CompatibleLicense = ('EXCHANGE_S_ENTERPRISE'),
         Pillar = 'Data',
         RiskLevel = 'High',
         SfiPillar = 'Protect tenants and production systems',
         TenantType = ('Workforce','External'),
         TestId = 35020,
-        Title = 'Auto-labeling enforcement mode enabled',
+        Title = 'Auto-labeling policies are in enforcement mode',
         UserImpact = 'Low'
     )]
     [CmdletBinding()]

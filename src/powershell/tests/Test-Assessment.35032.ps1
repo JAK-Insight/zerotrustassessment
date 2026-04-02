@@ -1,6 +1,6 @@
 <#
 .SYNOPSIS
-    Adaptive Protection in DLP Policies
+    Adaptive Protection is enabled in data loss prevention policies
 
 .DESCRIPTION
     Adaptive Protection in DLP integrates Microsoft Purview Insider Risk Management with Data Loss Prevention policies.
@@ -23,13 +23,14 @@ function Test-Assessment-35032 {
     [ZtTest(
         Category = 'Data Loss Prevention (DLP)',
         ImplementationCost = 'Low',
-        MinimumLicense = ('Microsoft 365 E5'),
+        Service = ('SecurityCompliance'),
+        CompatibleLicense = ('EXCHANGE_S_ENTERPRISE'),
         Pillar = 'Data',
         RiskLevel = 'Medium',
         SfiPillar = 'Protect tenants and production systems',
         TenantType = ('Workforce'),
         TestId = 35032,
-        Title = 'Adaptive Protection in DLP Policies',
+        Title = 'Adaptive Protection is enabled in data loss prevention policies',
         UserImpact = 'Medium'
     )]
     [CmdletBinding()]
